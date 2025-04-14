@@ -45,12 +45,43 @@ heritage$ISO3 <- countrycode(heritage$Country, "country.name", "iso3c")
 fraser_aggregate$ISO3 <- countrycode(fraser_aggregate$Country, "country.name", "iso3c")
 
 # Merge using standardized ISO codes
-merged_data <- full_join(heritage, fraser_aggregate, by = c("ISO3", "Year"))
+merged_index_data <- full_join(heritage, fraser_aggregate, by = c("ISO3", "Year"))
 
 # Ensure Fraser's country names are used unless NA
-merged_data <- merged_data %>%
+merged_index_data <- merged_index_data %>%
   mutate(Country = coalesce(Country.y, Country.x)) %>%  # Use Fraser's names unless NA
   select(ISO3, Country, Year, everything(), -Country.x, -Country.y)  # Reorder columns
+
+```
+```{r import WDI}
+# Load WDI dataset
+wdi_data <- read_csv("10115ced-732d-4788-9075-d31041264141_Data.csv", show_col_types = FALSE)
+# Identify year columns (matching "YYYY [YRYYYY]" pattern)
+year_columns <- names(wdi_data)[grepl("^[0-9]{4} \\[YR[0-9]{4}\\]$", names(wdi_data))]
+
+# Ensure that year_columns is not empty
+if (length(year_columns) == 0) {
+  stop("No year columns found. Please check dataset structure.")
+}
+```
+
+```{r tidy wdi}
+# Identify duplicate entries that cause issues
+duplicates <- wdi_tidy %>%
+  group_by(`Country Name`, `Country Code`, `Series Name`, Year, `Series Code`) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  filter(n > 1)
+
+# Aggregate duplicate values using mean (or median, depending on preference)
+wdi_tidy <- wdi_tidy %>%
+  group_by(`Country Name`, `Country Code`, `Series Name`, Year, `Series Code`) %>%
+  summarise(Value = mean(as.numeric(Value), na.rm = TRUE), .groups = "drop")
+
+# Reshape to wide format: One row per Country-Year, indicators as columns
+wdi_tidy <- wdi_tidy %>%
+  pivot_wider(names_from = `Series Code`, values_from = Value, values_fn = mean) %>%
+  mutate(across(where(is.character), ~na_if(., ".."))) %>%  # Convert ".." to NA
+  mutate(across(where(is.character), ~na_if(., "")))  # Convert empty strings to NA
 
 ```
 
