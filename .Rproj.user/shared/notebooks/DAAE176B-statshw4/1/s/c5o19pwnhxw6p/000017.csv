@@ -1,0 +1,8 @@
+"0",""
+"0","# Store AUCs"
+"0","auc_values <- tibble::tibble("
+"0","  Model = c(""Logistic Regression"", ""Lasso"", ""Ridge""),"
+"0","  AUC = c(auc(roc_lr), auc(roc_lasso), auc(roc_ridge))"
+"0",")"
+"0",""
+"0","auc_values"

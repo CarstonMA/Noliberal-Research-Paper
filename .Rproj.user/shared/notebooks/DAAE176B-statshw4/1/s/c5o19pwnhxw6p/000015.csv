@@ -1,0 +1,2 @@
+"0","legend(""bottomright"", legend = c(""Logistic Regression"", ""Lasso"", ""Ridge""),"
+"0","       col = c(""blue"", ""red"", ""darkgreen""), lty = 1)"

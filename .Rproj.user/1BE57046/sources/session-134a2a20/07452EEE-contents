@@ -1,0 +1,39 @@
+library(tidyverse)
+
+df <- read.csv("core_temp.csv")
+
+# serious infection defined by experiencing one of these
+outcome_vars <- c("SSIDeep.fascia.",
+                  "Sepsis",
+                  "SSIOrganSpace",
+                  "Pneumonia",
+                  "Pneumonia.aspiration.",
+                  "AbsessIntraAb",
+                  "AbsessPelvic",
+                  "Cdiff")
+
+# remove vars that we shouldn't use for prediction
+df <- df %>%
+  dplyr::select(-c("DurationHosp","LOS","DEAD", outcome_vars,
+                   "AnyInfection", "SuperficialInfection",
+                   "FascialDehiscence", "DelayedHealing", "Infection",
+                   "Sinus", "SSISuperficial.skin.", "WoundInfection"))
+
+# change vars to categorical
+num_vars <-  c("Age","BMI","CharlsonScore", "TWATemp" ,
+               "LastReadingTemp",  "EndCaseTemp","SurgDuration", 
+               "SeriousInfection")
+cat_vars <- names(df)[!(names(df) %in% num_vars)]
+df[cat_vars] <- lapply(df[cat_vars], as.factor)
+
+# surgery type is NA so drop
+df <- df %>% dplyr::select(-c(SurgeryType))
+df <- na.omit(df)
+
+# Get test train split
+df$Y <- df$SeriousInfection
+df <- df %>% dplyr::select(-c(SeriousInfection))
+train_ids <- df$YEAR %in% c(2009, 2010)
+dftrain <- df[train_ids,] %>% dplyr::select(-c(YEAR))
+dftest <- df[!train_ids,] %>% dplyr::select(-c(YEAR))
+

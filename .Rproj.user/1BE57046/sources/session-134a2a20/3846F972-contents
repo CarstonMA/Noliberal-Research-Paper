@@ -1,0 +1,89 @@
+---
+title: "Neoliberal Research"
+output: html_document
+date: "2025-03-18"
+---
+```{r}
+# Load necessary libraries
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(countrycode)
+```
+
+
+```{r import Heritage}
+# Load Heritage Data
+heritage <- read_csv("Heritage.csv", show_col_types = FALSE) %>%
+  rename(Country = name_web, Year = Year, Heritage_Score = Overall, Region = region) %>%
+  select(Country, Year, Heritage_Score, `Property Rights`, `Government Integrity`,
+         `Judicial Effectiveness`, `Tax Burden`, `Government Spending`, `Fiscal Health`, 
+         `Business Freedom`, `Labor Freedom`, `Monetary Freedom`, `Trade Freedom`, 
+         `Investment Freedom`, `Financial Freedom`, Region)
+
+# Convert "N/A" text values to NA
+heritage <- heritage %>%
+  mutate(across(where(is.character), ~ na_if(., "N/A")))
+
+
+```
+
+```{r import fraser Aggregate}
+# Load fraser Data
+fraser_aggregate <- read_excel("fraser.xlsx", sheet = "EFW Panel Data 2024 Report") %>%
+  rename(Country = Countries, Year = Year, 
+         fraser_Score = Summary, 
+         Size_of_Government = `Area 1`, 
+         Legal_System_and_Property = `Area 2`, 
+         Sound_Money = `Area 3`, 
+         Free_Trade = `Area 4`, 
+         Regulation = `Area 5`) %>%
+  select(Country, Year, fraser_Score, 
+         Size_of_Government, Legal_System_and_Property, 
+         Sound_Money, Free_Trade, Regulation)
+
+# Import the entire file, using row 5 as column names (skip first 4 rows)
+fraser_component <- read_excel("Fraser.xlsx", sheet = "EFW Data 2024 Report", skip = 4)
+```
+
+
+```{r merge data}
+# Manually assign ISO3 codes for Kosovo and Micronesia **before merging**
+manual_iso3 <- c(
+  "kosovo" = "XKX",      # Kosovo's ISO3 code
+  "micronesia" = "FSM"   # Micronesia's ISO3 code
+)
+
+heritage <- heritage %>%
+  mutate(ISO3 = ifelse(Country %in% names(manual_iso3), manual_iso3[Country], 
+                       countrycode(Country, "country.name", "iso3c")))
+
+fraser_aggregate <- fraser_aggregate %>%
+  mutate(ISO3 = ifelse(Country %in% names(manual_iso3), manual_iso3[Country], 
+                       countrycode(Country, "country.name", "iso3c")))
+
+# Merge using standardized ISO3 codes
+merged_data <- full_join(heritage, fraser_aggregate, by = c("ISO3", "Year"))
+
+# Ensure Fraser's country names are used unless NA
+merged_data <- merged_data %>%
+  mutate(Country = coalesce(Country.y, Country.x)) %>%  # Use Fraser's names unless NA
+  select(ISO3, Country, Year, everything(), -Country.x, -Country.y)  # Reorder columns
+
+```
+```{r components}
+
+
+# Remove columns with "Rank", "Data", or "Area" in the header
+fraser_cleaned <- fraser_component %>%
+  select(-matches("(?i)Rank|Data|Area|2|Quartile"))  # Case-insensitive match
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+

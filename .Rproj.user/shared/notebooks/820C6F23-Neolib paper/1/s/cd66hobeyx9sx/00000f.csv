@@ -10,3 +10,7 @@
 "0","  select(Country, Year, fraser_Score, "
 "0","         Size_of_Government, Legal_System_and_Property, "
 "0","         Sound_Money, Free_Trade, Regulation)"
+"0",""
+"0","# Import the entire file, using row 5 as column names (skip first 4 rows)"
+"0","fraser_component <- read_excel(""Fraser.xlsx"", sheet = ""EFW Data 2024 Report"", skip = 4)"
+"2","New names:"

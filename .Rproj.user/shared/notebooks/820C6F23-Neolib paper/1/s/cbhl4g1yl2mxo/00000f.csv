@@ -1,0 +1,6 @@
+"0",""
+"0",""
+"0","# Remove columns with ""Rank"", ""Data"", or ""Area"" in the header"
+"0","fraser_cleaned <- fraser_component %>%"
+"0","  select(-matches(""(?i)Rank|Data|Area|2|Quartile""))  # Case-insensitive match"
+"0",""
