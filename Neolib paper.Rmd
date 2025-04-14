@@ -60,19 +60,32 @@ if (length(year_columns) == 0) {
 ```
 
 ```{r tidy widi}
+# Identify year columns dynamically
+year_columns <- names(wdi_data)[grepl("^[0-9]{4} \\[YR[0-9]{4}\\]$", names(wdi_data))]
 
-duplicates <- wdi_tidy %>%
-  group_by(`Country Name`, `Country Code`, `Series Name`, Year, `Series Code`) %>%
-  summarise(n = n(), .groups = "drop") %>%
-  filter(n > 1)
+# Convert to "tidy" format: Gather year columns into long format
+wdi_tidy <- wdi_data %>%
+  pivot_longer(cols = all_of(year_columns),  # Use detected year columns
+               names_to = "Year", 
+               values_to = "Value") %>%
+  mutate(Year = as.numeric(gsub(" \\[YR[0-9]{4}\\]", "", Year))) %>%  # Remove [YRYYYY] from Year
+  filter(!is.na(Year)) %>%  # Keep only valid years
+  mutate(Value = na_if(Value, ".."))  # Convert ".." to NA
+
+# Handle duplicate values before pivoting to wide format
+wdi_tidy <- wdi_tidy %>%
+  group_by(`Country Name`, `Country Code`, Year, `Series Name`) %>%
+  summarise(Value = mean(as.numeric(Value), na.rm = TRUE), .groups = "drop")  # Aggregate duplicate values
+
+# Reshape to wide format: One row per Country-Year, indicators as columns
+wdi_tidy <- wdi_tidy %>%
+  pivot_wider(names_from = `Series Name`, values_from = Value, values_fn = mean) %>%
+  mutate(across(where(is.character), ~na_if(., ".."))) %>%  # Convert ".." to NA for character columns
+  mutate(across(where(is.character), ~na_if(., ""))) %>%  # Convert empty strings to NA
+  mutate(across(where(is.numeric), ~ ifelse(is.nan(.), NA, .)))  # Convert NaNto NA
 
 wdi_tidy <- wdi_tidy %>%
-  group_by(`Country Name`, `Country Code`, `Series Name`, Year, `Series Code`) %>%
-  summarise(Value = mean(as.numeric(Value), na.rm = TRUE), .groups = "drop") %>%
-  pivot_wider(names_from = `Series Code`, values_from = Value, values_fn = mean) %>%
-  mutate(across(where(is.character), ~na_if(., ".."))) %>%
-  mutate(across(where(is.character), ~na_if(., "")))
-
+  select(where(~ !all(is.na(.))))  # Keep only columns with at least one non-NA value
 
 ```
 
