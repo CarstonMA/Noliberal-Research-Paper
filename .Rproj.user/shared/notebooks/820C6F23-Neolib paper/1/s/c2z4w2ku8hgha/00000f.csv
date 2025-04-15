@@ -1,0 +1,7 @@
+"0","wdi_data <- read_csv(""10115ced-732d-4788-9075-d31041264141_Data.csv"", show_col_types = FALSE)"
+"0",""
+"0","year_columns <- names(wdi_data)[grepl(""^[0-9]{4} \\[YR[0-9]{4}\\]$"", names(wdi_data))]"
+"0",""
+"0","if (length(year_columns) == 0) {"
+"0","  stop(""No year columns found. Please check dataset structure."")"
+"0","}"

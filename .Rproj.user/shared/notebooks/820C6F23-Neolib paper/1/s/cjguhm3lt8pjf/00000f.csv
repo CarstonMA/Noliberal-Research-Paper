@@ -1,0 +1,6 @@
+"0","# Export the merged economic data to CSV"
+"0","write_csv(merged_index_data, ""merged_index_data.csv"")"
+"0",""
+"0","# Export the tidy WDI data to CSV"
+"0","write_csv(wdi_tidy, ""wdi_tidy.csv"")"
+"0",""

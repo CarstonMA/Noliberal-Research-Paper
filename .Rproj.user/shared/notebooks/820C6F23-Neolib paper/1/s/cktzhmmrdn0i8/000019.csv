@@ -1,0 +1,6 @@
+"0","merged_data <- merged_data %>%"
+"0","  mutate(Country = coalesce(Country Name.y, Country.x)) %>%  # Create/replace Country using Country.y first, if available"
+"2","Error: unexpected symbol in:
+""merged_data <- merged_data %>%
+  mutate(Country = coalesce(Country Name.y""
+"

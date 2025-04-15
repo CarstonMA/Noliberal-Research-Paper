@@ -1,0 +1,46 @@
+---
+title: "Neolib analysis"
+output: html_document
+date: "2025-04-15"
+---
+```{r setup}
+library(dplyr)
+```
+
+
+```{r data}
+data <- read.csv('merged_data.csv', header = TRUE, stringsAsFactors = FALSE)
+
+data <- data[!is.na(data$ISO3), ]
+
+# Define the names of the columns to exclude from the check
+cols_to_exclude <- c("ISO3", "Year")
+
+# Get the names of all other columns that should have additional information
+cols_to_check <- setdiff(names(data), cols_to_exclude)
+
+# Create a logical vector identifying rows where all columns (other than ISO3 and Year) are NA
+rows_with_only_iso3_year <- apply(data[, cols_to_check], 1, function(x) all(is.na(x)))
+
+# Remove those rows (keeping only rows that have at least one non-NA value outside of ISO3 and Year)
+data <- data[!rows_with_only_iso3_year, ]
+
+data <- data %>% 
+  filter(!(is.na(Heritage_Score) & is.na(fraser_Score)))
+
+```
+
+
+```{r examine data}
+# Check total missing values per column
+sapply(data, function(x) sum(is.na(x)))
+```
+```{r regression}
+# Fit a simple linear regression model
+model1 <- lm(GDP.per.capita..constant.2015.US.. ~ Heritage_Score, data = data_clean)
+summary(model1)
+
+```
+
+```{r appendix, ref.label = c("setup"), echo = TRUE, eval = FALSE}
+```

@@ -59,38 +59,76 @@ if (length(year_columns) == 0) {
 }
 ```
 
-```{r tidy widi}
-# Identify year columns dynamically
-year_columns <- names(wdi_data)[grepl("^[0-9]{4} \\[YR[0-9]{4}\\]$", names(wdi_data))]
+```{r tidy wdi}
+# Identify columns with year data (format: "YYYY [YRYYYY]")
+year_columns <- names(wdi_data)[
+  grepl("^[0-9]{4} \\[YR[0-9]{4}\\]$", names(wdi_data))
+]
 
-# Convert to "tidy" format: Gather year columns into long format
+# Convert to "tidy" format by gathering year columns into a long format
 wdi_tidy <- wdi_data %>%
-  pivot_longer(cols = all_of(year_columns),  # Use detected year columns
-               names_to = "Year", 
-               values_to = "Value") %>%
-  mutate(Year = as.numeric(gsub(" \\[YR[0-9]{4}\\]", "", Year))) %>%  # Remove [YRYYYY] from Year
-  filter(!is.na(Year)) %>%  # Keep only valid years
-  mutate(Value = na_if(Value, ".."))  # Convert ".." to NA
+  pivot_longer(
+    cols = all_of(year_columns),  # Use detected year columns
+    names_to = "Year", 
+    values_to = "Value"
+  ) %>%
+  # Remove the pattern " [YRYYYY]" from Year and convert to numeric
+  mutate(Year = as.numeric(gsub(" \\[YR[0-9]{4}\\]", "", Year))) %>%
+  # Keep only rows with valid years
+  filter(!is.na(Year)) %>%
+  # Replace missing data indicator ".." with NA
+  mutate(Value = na_if(Value, ".."))
 
-# Handle duplicate values before pivoting to wide format
+# Aggregate duplicate values before pivoting to wide format
 wdi_tidy <- wdi_tidy %>%
   group_by(`Country Name`, `Country Code`, Year, `Series Name`) %>%
-  summarise(Value = mean(as.numeric(Value), na.rm = TRUE), .groups = "drop")  # Aggregate duplicate values
+  summarise(Value = mean(as.numeric(Value), na.rm = TRUE), .groups = "drop")
 
-# Reshape to wide format: One row per Country-Year, indicators as columns
+# Reshape the data into wide format: one row per Country-Year,
+# and each indicator (Series Name) as a separate column
 wdi_tidy <- wdi_tidy %>%
-  pivot_wider(names_from = `Series Name`, values_from = Value, values_fn = mean) %>%
-  mutate(across(where(is.character), ~na_if(., ".."))) %>%  # Convert ".." to NA for character columns
-  mutate(across(where(is.character), ~na_if(., ""))) %>%  # Convert empty strings to NA
-  mutate(across(where(is.numeric), ~ ifelse(is.nan(.), NA, .)))  # Convert NaNto NA
+  pivot_wider(
+    names_from = `Series Name`, 
+    values_from = Value, 
+    values_fn = mean
+  ) %>%
+  # Replace any remaining missing data markers for character columns
+  mutate(across(where(is.character), ~ na_if(., ".."))) %>%
+  mutate(across(where(is.character), ~ na_if(., ""))) %>%
+  # Convert NaN values to NA in numeric columns
+  mutate(across(where(is.numeric), ~ ifelse(is.nan(.), NA, .)))
 
+# Remove columns that consist entirely of NA values
 wdi_tidy <- wdi_tidy %>%
-  select(where(~ !all(is.na(.))))  # Keep only columns with at least one non-NA value
+  select(where(~ !all(is.na(.))))
+wdi_tidy <- wdi_tidy %>% rename(ISO3 = `Country Code`)
+merged_data <- full_join(merged_index_data, wdi_tidy, by = c("ISO3", "Year"))
+
 
 ```
 
+```{r print csv}
+# Export the merged economic data to CSV
+write_csv(merged_index_data, "merged_index_data.csv")
 
-```{r appendix, ref.label = c("setup","import Heritage","import fraser Aggregate","merge data","import WDI","tidy widi"), echo = TRUE, eval = FALSE}
+# Export the tidy WDI data to CSV
+write_csv(wdi_tidy, "wdi_tidy.csv")
+
+```
+
+```{r merge data}
+merged_data <- merged_data %>%
+  mutate(Country = coalesce(Country_Name.y, Country.x)) %>%  # Create/replace Country using Country.y first, if available
+  select(-Country.x, -Country.y)                         # Drop the duplicate columns
+
+
+# Merge the economic data with the WDI data on ISO3 and Year
+merged_data <- full_join(merged_index_data, wdi_tidy, by = c("ISO3", "Year"))
+
+write_csv(merged_data, "merged_data.csv")
+```
+
+```{r appendix, ref.label = c("setup","import Heritage","import fraser Aggregate","merge data","import WDI","tidy wdi"), echo = TRUE, eval = FALSE}
 ```
 
 

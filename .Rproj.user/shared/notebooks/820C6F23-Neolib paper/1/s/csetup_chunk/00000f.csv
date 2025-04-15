@@ -1,1 +1,6 @@
-"0","knitr::opts_chunk$set(echo = TRUE)"
+"0","knitr::opts_chunk$set(echo = FALSE)  # Default: do not show code unless overridden"
+"0","library(readr)"
+"0","library(readxl)"
+"0","library(dplyr)"
+"0","library(tidyr)"
+"0","library(countrycode)"

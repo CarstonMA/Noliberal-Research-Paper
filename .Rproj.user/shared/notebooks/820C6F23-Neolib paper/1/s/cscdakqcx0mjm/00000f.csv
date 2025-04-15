@@ -1,0 +1,9 @@
+"0","heritage$ISO3 <- countrycode(heritage$Country, ""country.name"", ""iso3c"")"
+"2","Warning: Some values were not matched unambiguously: kosovo, micronesia
+"
+"0","fraser_aggregate$ISO3 <- countrycode(fraser_aggregate$Country, ""country.name"", ""iso3c"")"
+"0",""
+"0","merged_index_data <- full_join(heritage, fraser_aggregate, by = c(""ISO3"", ""Year"")) %>%"
+"0","  mutate(Country = coalesce(Country.y, Country.x)) %>%"
+"0","  select(ISO3, Country, Year, everything(), -Country.x, -Country.y)"
+"0",""
