@@ -5,6 +5,11 @@ date: "2025-04-15"
 ---
 ```{r setup}
 library(dplyr)
+library(ggplot2)
+library(visreg)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
 ```
 
 
@@ -26,10 +31,52 @@ rows_with_only_iso3_year <- apply(data[, cols_to_check], 1, function(x) all(is.n
 data <- data[!rows_with_only_iso3_year, ]
 
 data <- data %>% 
-  filter(!(is.na(Heritage_Score) & is.na(fraser_Score)))
+  filter(!(is.na(Heritage_Score) & is.na(fraser_Score))) %>%
+  filter(!(Year<1995))
 
 ```
 
+```{r remove incomplete}
+incomplete_countries <- data %>%
+  group_by(ISO3) %>%
+  summarize(missing = any(is.na(Heritage_Score))) %>%
+  filter(missing) %>%            # Countries with any missing score after 1995
+  pull(ISO3)
+
+print("Countries with missing Heritage Score:")
+print(incomplete_countries)
+
+# 2. Remove these countries from the main dataset
+data_complete <- data %>% filter(!(ISO3 %in% incomplete_countries))
+
+remaining_countries <- data_complete %>% distinct(ISO3)
+print("Countries remaining after removal:")
+print(remaining_countries)
+
+# 3. Create a completeness status table for the full dataset (optional)
+complete_status <- data %>% 
+  group_by(ISO3) %>% 
+  summarize(complete = all(!is.na(Heritage_Score))) %>% 
+  ungroup() %>% 
+  mutate(status = if_else(complete, "Complete", "Incomplete"))
+
+# 4. Download the world map data using rnaturalearth (as an sf object)
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# 5. Join the completeness status (by ISO3) with the world map.
+#    Here we assume that the ISO3 codes in your data match the 'iso_a3' field in the world map.
+world_status <- left_join(world, complete_status, by = c("iso_a3" = "ISO3"))
+
+# 6. Plot the world map indicating complete vs. incomplete Heritage_Score data.
+ggplot(world_status) +
+  geom_sf(aes(fill = status)) +
+  scale_fill_manual(values = c("Complete" = "forestgreen", "Incomplete" = "firebrick"),
+                    na.value = "grey80") +
+  labs(title = "Complete vs Incomplete Heritage Score Data by Country",
+       subtitle = "Countries missing Heritage Score have been removed from the complete set",
+       fill = "Heritage Data Status") +
+  theme_minimal()
+```
 
 ```{r examine data}
 # Check total missing values per column
@@ -37,8 +84,44 @@ sapply(data, function(x) sum(is.na(x)))
 ```
 ```{r regression}
 # Fit a simple linear regression model
-model1 <- lm(GDP.per.capita..constant.2015.US.. ~ Heritage_Score, data = data_clean)
-summary(model1)
+per_cap_GDP_her <- lm(GDP.per.capita..constant.2015.US.. ~ Heritage_Score, data = data_complete)
+summary(per_cap_GDP_her)
+
+per_cap_GDP_fra <- lm(GDP.per.capita..constant.2015.US.. ~ fraser_Score, data = data_complete)
+summary(per_cap_GDP_fra)
+
+# Run a multiple linear regression using lm()
+model <- lm(Gini.index ~ Heritage_Score + fraser_Score, data = data_complete)
+summary(model)
+
+heritagemdl <- lm(Heritage_Score ~ Year, data = data_complete)
+summary(heritagemdl)
+
+
+```
+
+```{r graphs}
+# Filter data for the country "USA" (adjust ISO3 code as needed)
+usa_data <- data_complete %>% filter(ISO3 == "USA")
+
+# Plot Heritage_Score over time for USA
+ggplot(usa_data, aes(x = Year, y = Heritage_Score)) +
+  geom_line(color = "blue") +
+  geom_point(color = "blue") +
+  labs(title = "Heritage Score Over Time (USA)",
+       x = "Year", y = "Heritage Score")
+
+# Plot the effect of Heritage_Score on Gini.index controlling for fraser_Score
+visreg(model, "Heritage_Score", 
+       xlab = "Heritage Score", 
+       ylab = "Gini Index", 
+       main = "Partial Effect of Heritage Score on Gini Index")
+
+# Plot the effect of fraser_Score on Gini.index controlling for Heritage_Score
+visreg(model, "fraser_Score", 
+       xlab = "Fraser Score", 
+       ylab = "Gini Index", 
+       main = "Partial Effect of Fraser Score on Gini Index")
 
 ```
 
