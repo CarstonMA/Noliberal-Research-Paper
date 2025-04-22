@@ -8,6 +8,7 @@ library(dplyr)
 library(ggplot2)
 library(visreg)
 library(sf)
+library(broom)
 library(rnaturalearth)
 library(rnaturalearthdata)
 ```
@@ -34,94 +35,146 @@ data <- data %>%
   filter(!(is.na(Heritage_Score) & is.na(fraser_Score))) %>%
   filter(!(Year<1995))
 
+variable_labels <- c(
+  "Access.to.clean.fuels.and.technologies.for.cooking....of.population." = "Clean cooking access",
+  "Account.ownership.at.a.financial.institution.or.with.a.mobile.money.service.provider..poorest.40.....of.population.ages.15.." = "Account ownership (poorest 40%)",
+  "Annualized.average.growth.rate.in.per.capita.real.survey.mean.consumption.or.income..bottom.40..of.population...." = "Income growth (bottom 40%)",
+  "Carbon.dioxide..CO2..emissions..total..excluding.LULUCF..Mt.CO2e." = "Total CO₂ emissions",
+  "Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita." = "CO₂ emissions per capita",
+  "Children.in.employment..work.only....of.children.in.employment..ages.7.14." = "Child labor (% children 7–14)",
+  "Consumer.price.index..2010...100." = "Consumer Price Index (2010 = 100)",
+  "Coverage.of.social.insurance.programs....of.population." = "Social insurance coverage",
+  "Coverage.of.social.insurance.programs.in.poorest.quintile....of.population." = "Social insurance (poorest quintile)",
+  "Coverage.of.social.safety.net.programs....of.population." = "Safety net coverage",
+  "Coverage.of.social.safety.net.programs.in.poorest.quintile....of.population." = "Safety net (poorest quintile)",
+  "Coverage.of.unemployment.benefits.and.ALMP.in.poorest.quintile....of.population." = "Unemployment benefits (poorest quintile)",
+  "Educational.attainment..at.least.completed.lower.secondary..population.25...total......cumulative." = "Lower secondary education (% 25+)",
+  "Exports.of.goods.and.services..constant.2015.US.." = "Exports (constant USD)",
+  "GDP..constant.2015.US.." = "GDP (constant USD)",
+  "GDP.growth..annual..." = "GDP growth (%)",
+  "GDP.per.capita..constant.2015.US.." = "GDP per capita (constant USD)",
+  "GDP.per.capita.growth..annual..." = "GDP per capita growth (%)",
+  "GNI..constant.2015.US.." = "GNI (constant USD)",
+  "GNI.growth..annual..." = "GNI growth (%)",
+  "GNI.per.capita..constant.2015.US.." = "GNI per capita (constant USD)",
+  "GNI.per.capita.growth..annual..." = "GNI per capita growth (%)",
+  "Gini.index" = "Gini index (inequality)",
+  "Income.share.held.by.highest.10." = "Income share (top 10%)",
+  "Income.share.held.by.lowest.10." = "Income share (bottom 10%)",
+  "Marine.protected.areas....of.territorial.waters." = "Marine protected areas (%)",
+  "Poverty.gap.at..3.65.a.day..2017.PPP....." = "Poverty gap at $3.65/day",
+  "Poverty.gap.at..6.85.a.day..2017.PPP....." = "Poverty gap at $6.85/day",
+  "Poverty.headcount.ratio.at..3.65.a.day..2017.PPP.....of.population." = "Poverty rate ($3.65/day)",
+  "Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population." = "Poverty rate ($6.85/day)",
+  "Poverty.headcount.ratio.at.national.poverty.lines....of.population." = "Poverty rate (national line)",
+  "Poverty.headcount.ratio.at.societal.poverty.line....of.population." = "Poverty rate (societal line)",
+  "Proportion.of.people.living.below.50.percent.of.median.income...." = "Below 50% of median income",
+  "Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure...." = "Pushed below $3.65 by health costs",
+  "Proportion.of.population.pushed.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.expenditure...." = "Pushed below 60% median by health costs",
+  "Proportion.of.population.pushed.further.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure...." = "Pushed further below $3.65 by health costs",
+  "Proportion.of.population.pushed.further.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.care.expenditure...." = "Pushed further below 60% median by health costs",
+  "Proportion.of.population.spending.more.than.10..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure...." = "Health spending >10% of income",
+  "Proportion.of.population.spending.more.than.25..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure...." = "Health spending >25% of income",
+  "Prosperity.gap..average.shortfall.from.a.prosperity.standard.of..25.day." = "Prosperity gap from $25/day",
+  "School.enrollment..primary....net." = "Primary school enrollment (net)",
+  "Survey.mean.consumption.or.income.per.capita..total.population..2017.PPP...per.day." = "Mean daily consumption/income (PPP)",
+  "Unemployment..total....of.total.labor.force...modeled.ILO.estimate." = "Unemployment rate (ILO)"
+)
 ```
 
-```{r remove incomplete}
-incomplete_countries <- data %>%
-  group_by(ISO3) %>%
-  summarize(missing = any(is.na(Heritage_Score))) %>%
-  filter(missing) %>%            # Countries with any missing score after 1995
-  pull(ISO3)
 
-print("Countries with missing Heritage Score:")
-print(incomplete_countries)
-
-# 2. Remove these countries from the main dataset
-data_complete <- data %>% filter(!(ISO3 %in% incomplete_countries))
-
-remaining_countries <- data_complete %>% distinct(ISO3)
-print("Countries remaining after removal:")
-print(remaining_countries)
-
-# 3. Create a completeness status table for the full dataset (optional)
-complete_status <- data %>% 
-  group_by(ISO3) %>% 
-  summarize(complete = all(!is.na(Heritage_Score))) %>% 
-  ungroup() %>% 
-  mutate(status = if_else(complete, "Complete", "Incomplete"))
-
-# 4. Download the world map data using rnaturalearth (as an sf object)
-world <- ne_countries(scale = "medium", returnclass = "sf")
-
-# 5. Join the completeness status (by ISO3) with the world map.
-#    Here we assume that the ISO3 codes in your data match the 'iso_a3' field in the world map.
-world_status <- left_join(world, complete_status, by = c("iso_a3" = "ISO3"))
-
-# 6. Plot the world map indicating complete vs. incomplete Heritage_Score data.
-ggplot(world_status) +
-  geom_sf(aes(fill = status)) +
-  scale_fill_manual(values = c("Complete" = "forestgreen", "Incomplete" = "firebrick"),
-                    na.value = "grey80") +
-  labs(title = "Complete vs Incomplete Heritage Score Data by Country",
-       subtitle = "Countries missing Heritage Score have been removed from the complete set",
-       fill = "Heritage Data Status") +
-  theme_minimal()
-```
 
 ```{r examine data}
 # Check total missing values per column
 sapply(data, function(x) sum(is.na(x)))
 ```
 ```{r regression}
-# Fit a simple linear regression model
-per_cap_GDP_her <- lm(GDP.per.capita..constant.2015.US.. ~ Heritage_Score, data = data_complete)
-summary(per_cap_GDP_her)
+# STEP 1: List all outcome variables (after 'Regulation')
+outcomes <- c(
+  "Access.to.clean.fuels.and.technologies.for.cooking....of.population.",
+  "Account.ownership.at.a.financial.institution.or.with.a.mobile.money.service.provider..poorest.40.....of.population.ages.15..",
+  "Annualized.average.growth.rate.in.per.capita.real.survey.mean.consumption.or.income..bottom.40..of.population....",
+  "Carbon.dioxide..CO2..emissions..total..excluding.LULUCF..Mt.CO2e.",
+  "Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita.",
+  "Children.in.employment..work.only....of.children.in.employment..ages.7.14.",
+  "Consumer.price.index..2010...100.",
+  "Coverage.of.social.insurance.programs....of.population.",
+  "Coverage.of.social.insurance.programs.in.poorest.quintile....of.population.",
+  "Coverage.of.social.safety.net.programs....of.population.",
+  "Coverage.of.social.safety.net.programs.in.poorest.quintile....of.population.",
+  "Coverage.of.unemployment.benefits.and.ALMP.in.poorest.quintile....of.population.",
+  "Educational.attainment..at.least.completed.lower.secondary..population.25...total......cumulative.",
+  "Exports.of.goods.and.services..constant.2015.US..",
+  "GDP..constant.2015.US..",
+  "GDP.growth..annual...",
+  "GDP.per.capita..constant.2015.US..",
+  "GDP.per.capita.growth..annual...",
+  "GNI..constant.2015.US..",
+  "GNI.growth..annual...",
+  "GNI.per.capita..constant.2015.US..",
+  "GNI.per.capita.growth..annual...",
+  "Gini.index",
+  "Income.share.held.by.highest.10.",
+  "Income.share.held.by.lowest.10.",
+  "Marine.protected.areas....of.territorial.waters.",
+  "Poverty.gap.at..3.65.a.day..2017.PPP.....",
+  "Poverty.gap.at..6.85.a.day..2017.PPP.....",
+  "Poverty.headcount.ratio.at..3.65.a.day..2017.PPP.....of.population.",
+  "Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population.",
+  "Poverty.headcount.ratio.at.national.poverty.lines....of.population.",
+  "Poverty.headcount.ratio.at.societal.poverty.line....of.population.",
+  "Proportion.of.people.living.below.50.percent.of.median.income....",
+  "Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure....",
+  "Proportion.of.population.pushed.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.expenditure....",
+  "Proportion.of.population.pushed.further.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure....",
+  "Proportion.of.population.pushed.further.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.care.expenditure....",
+  "Proportion.of.population.spending.more.than.10..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure....",
+  "Proportion.of.population.spending.more.than.25..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure....",
+  "Prosperity.gap..average.shortfall.from.a.prosperity.standard.of..25.day.",
+  "School.enrollment..primary....net.",
+  "Survey.mean.consumption.or.income.per.capita..total.population..2017.PPP...per.day.",
+  "Unemployment..total....of.total.labor.force...modeled.ILO.estimate."
+)
 
-per_cap_GDP_fra <- lm(GDP.per.capita..constant.2015.US.. ~ fraser_Score, data = data_complete)
-summary(per_cap_GDP_fra)
+# STEP 2: Run regressions and collect results
+results <- lapply(outcomes, function(var) {
+  form_heritage <- as.formula(paste(var, "~ Heritage_Score"))
+  form_fraser <- as.formula(paste(var, "~ fraser_Score"))
+  
+  model_heritage <- lm(form_heritage, data = data)
+  model_fraser <- lm(form_fraser, data = data)
+  
+  tidy_heritage <- tidy(model_heritage)[2, ]  # coefficient row
+  tidy_fraser <- tidy(model_fraser)[2, ]
+  
+  data.frame(
+    Outcome = var,
+    Coef_Heritage = tidy_heritage$estimate,
+    P_Heritage = tidy_heritage$p.value,
+    R2_Heritage = summary(model_heritage)$r.squared,
+    Coef_Fraser = tidy_fraser$estimate,
+    P_Fraser = tidy_fraser$p.value,
+    R2_Fraser = summary(model_fraser)$r.squared
+  )
+})
 
-# Run a multiple linear regression using lm()
-model <- lm(Gini.index ~ Heritage_Score + fraser_Score, data = data_complete)
-summary(model)
+# STEP 3: Combine and sort, then add readable variable names
+regression_summary <- do.call(rbind, results) %>%
+  mutate(
+    Min_P = pmin(P_Heritage, P_Fraser),
+    Outcome_Label = variable_labels[Outcome]
+  ) %>%
+  arrange(Min_P)
 
-heritagemdl <- lm(Heritage_Score ~ Year, data = data_complete)
-summary(heritagemdl)
+# Optional: Drop raw variable name column for a cleaner table
+regression_summary <- regression_summary %>%
+  select(Outcome_Label, Coef_Heritage, P_Heritage, R2_Heritage,
+         Coef_Fraser, P_Fraser, R2_Fraser, Min_P)
+
+# STEP 4: View top significant results
+print(regression_summary)
 
 
-```
-
-```{r graphs}
-# Filter data for the country "USA" (adjust ISO3 code as needed)
-usa_data <- data_complete %>% filter(ISO3 == "USA")
-
-# Plot Heritage_Score over time for USA
-ggplot(usa_data, aes(x = Year, y = Heritage_Score)) +
-  geom_line(color = "blue") +
-  geom_point(color = "blue") +
-  labs(title = "Heritage Score Over Time (USA)",
-       x = "Year", y = "Heritage Score")
-
-# Plot the effect of Heritage_Score on Gini.index controlling for fraser_Score
-visreg(model, "Heritage_Score", 
-       xlab = "Heritage Score", 
-       ylab = "Gini Index", 
-       main = "Partial Effect of Heritage Score on Gini Index")
-
-# Plot the effect of fraser_Score on Gini.index controlling for Heritage_Score
-visreg(model, "fraser_Score", 
-       xlab = "Fraser Score", 
-       ylab = "Gini Index", 
-       main = "Partial Effect of Fraser Score on Gini Index")
 
 ```
 
