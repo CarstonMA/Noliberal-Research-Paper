@@ -1,0 +1,93 @@
+---
+title: "Neolib analysis"
+date: "2025-04-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(visreg)
+library(sf)
+library(broom)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(plm)
+library(tidyr)
+library(readr)
+library(gridExtra)
+library(grid)
+```
+
+## Load and Clean Data
+
+```{r data}
+data <- read.csv('merged_data.csv', stringsAsFactors = FALSE)
+
+data <- data[!is.na(data$ISO3), ]
+
+# Remove rows with only ISO3 and Year
+cols_to_exclude <- c("ISO3", "Year")
+cols_to_check <- setdiff(names(data), cols_to_exclude)
+data <- data[!apply(data[, cols_to_check], 1, function(x) all(is.na(x))), ]
+
+# Filter for valid economic freedom scores and years
+data <- data %>%
+  filter(!(is.na(Heritage_Score) & is.na(fraser_Score))) %>%
+  filter(Year >= 1995)
+```
+
+## Rename Variables
+
+```{r rename}
+# Load variable labels
+variable_labels <- c(
+  "GDP.per.capita..constant.2015.US.." = "GDP per capita (constant USD)",
+  "Gini.index" = "Gini index (inequality)"
+  # Additional mappings omitted for brevity...
+)
+
+# Safely rename
+valid_labels <- variable_labels[names(variable_labels) %in% colnames(data)]
+renaming_vector <- setNames(names(valid_labels), valid_labels)
+data <- data %>% rename(!!!renaming_vector)
+```
+
+## Examine Missingness
+
+```{r missing}
+sapply(data, function(x) sum(is.na(x)))
+```
+
+## Simple Linear Regressions
+
+```{r regression}
+outcomes <- unname(valid_labels)
+results <- lapply(outcomes, function(var) {
+  form_heritage <- as.formula(paste0("`", var, "` ~ Heritage_Score"))
+  form_fraser <- as.formula(paste0("`", var, "` ~ fraser_Score"))
+
+  model_heritage <- lm(form_heritage, data = data)
+  model_fraser <- lm(form_fraser, data = data)
+
+  tidy_heritage <- broom::tidy(model_heritage)[2, ]
+  tidy_fraser <- broom::tidy(model_fraser)[2, ]
+
+  data.frame(
+    Outcome_Label = var,
+    Coef_Heritage = tidy_heritage$estimate,
+    P_Heritage = tidy_heritage$p.value,
+    R2_Heritage = summary(model_heritage)$r.squared,
+    Coef_Fraser = tidy_fraser$estimate,
+    P_Fraser = tidy_fraser$p.value,
+    R2_Fraser = summary(model_fraser)$r.squared
+  )
+})
+
+regression_summary <- do.call(rbind, results) %>%
+  mutate(Min_P = pmin(P_Heritage, P_Fraser)) %>%
+  arrange(Min_P)
+
+print(regression_summary)
+write.csv(regression_summary, "regression_summary.csv", row.names = FALSE)
+```

@@ -365,12 +365,16 @@ display: none;
 ## 
 ##     intersect, setdiff, setequal, union</code></pre>
 <pre class="r"><code>library(ggplot2)
-library(visreg)
-library(sf)</code></pre>
+library(visreg)</code></pre>
+<pre><code>## Warning: package &#39;visreg&#39; was built under R version 4.4.3</code></pre>
+<pre class="r"><code>library(sf)</code></pre>
+<pre><code>## Warning: package &#39;sf&#39; was built under R version 4.4.3</code></pre>
 <pre><code>## Linking to GEOS 3.13.0, GDAL 3.10.1, PROJ 9.5.1; sf_use_s2() is TRUE</code></pre>
 <pre class="r"><code>library(broom)
-library(rnaturalearth)
-library(rnaturalearthdata)</code></pre>
+library(rnaturalearth)</code></pre>
+<pre><code>## Warning: package &#39;rnaturalearth&#39; was built under R version 4.4.3</code></pre>
+<pre class="r"><code>library(rnaturalearthdata)</code></pre>
+<pre><code>## Warning: package &#39;rnaturalearthdata&#39; was built under R version 4.4.3</code></pre>
 <pre><code>## 
 ## Attaching package: &#39;rnaturalearthdata&#39;</code></pre>
 <pre><code>## The following object is masked from &#39;package:rnaturalearth&#39;:
@@ -440,197 +444,156 @@ variable_labels &lt;- c(
   &quot;School.enrollment..primary....net.&quot; = &quot;Primary school enrollment (net)&quot;,
   &quot;Survey.mean.consumption.or.income.per.capita..total.population..2017.PPP...per.day.&quot; = &quot;Mean daily consumption/income (PPP)&quot;,
   &quot;Unemployment..total....of.total.labor.force...modeled.ILO.estimate.&quot; = &quot;Unemployment rate (ILO)&quot;
-)</code></pre>
+)
+
+# Rename columns in the data using variable_labels mapping
+data &lt;- data %&gt;%
+  rename_with(.fn = ~ variable_labels[.x], .cols = names(variable_labels))</code></pre>
 <pre class="r"><code># Check total missing values per column
 sapply(data, function(x) sum(is.na(x)))</code></pre>
-<pre><code>##                                                                                                                               ISO3 
-##                                                                                                                                  0 
-##                                                                                                                               Year 
-##                                                                                                                                  0 
-##                                                                                                                     Heritage_Score 
-##                                                                                                                                187 
-##                                                                                                                    Property.Rights 
-##                                                                                                                                155 
-##                                                                                                               Government.Integrity 
-##                                                                                                                                147 
-##                                                                                                             Judicial.Effectiveness 
-##                                                                                                                               3698 
-##                                                                                                                         Tax.Burden 
-##                                                                                                                                177 
-##                                                                                                                Government.Spending 
-##                                                                                                                                162 
-##                                                                                                                      Fiscal.Health 
-##                                                                                                                               3705 
-##                                                                                                                   Business.Freedom 
-##                                                                                                                                148 
-##                                                                                                                      Labor.Freedom 
-##                                                                                                                               1641 
-##                                                                                                                   Monetary.Freedom 
-##                                                                                                                                154 
-##                                                                                                                      Trade.Freedom 
-##                                                                                                                                170 
-##                                                                                                                 Investment.Freedom 
-##                                                                                                                                164 
-##                                                                                                                  Financial.Freedom 
-##                                                                                                                                180 
-##                                                                                                                       fraser_Score 
-##                                                                                                                               1464 
-##                                                                                                                 Size_of_Government 
-##                                                                                                                               1429 
-##                                                                                                          Legal_System_and_Property 
-##                                                                                                                               1446 
-##                                                                                                                        Sound_Money 
-##                                                                                                                               1428 
-##                                                                                                                         Free_Trade 
-##                                                                                                                               1781 
-##                                                                                                                         Regulation 
-##                                                                                                                               1421 
-##                                                               Access.to.clean.fuels.and.technologies.for.cooking....of.population. 
-##                                                                                                                               1390 
-##       Account.ownership.at.a.financial.institution.or.with.a.mobile.money.service.provider..poorest.40.....of.population.ages.15.. 
-##                                                                                                                               4765 
-##                  Annualized.average.growth.rate.in.per.capita.real.survey.mean.consumption.or.income..bottom.40..of.population.... 
-##                                                                                                                               5183 
-##                                                                  Carbon.dioxide..CO2..emissions..total..excluding.LULUCF..Mt.CO2e. 
-##                                                                                                                                423 
-##                                                         Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita. 
-##                                                                                                                                423 
-##                                                         Children.in.employment..work.only....of.children.in.employment..ages.7.14. 
-##                                                                                                                               5029 
-##                                                                                                  Consumer.price.index..2010...100. 
-##                                                                                                                                705 
-##                                                                            Coverage.of.social.insurance.programs....of.population. 
-##                                                                                                                               4866 
-##                                                        Coverage.of.social.insurance.programs.in.poorest.quintile....of.population. 
-##                                                                                                                               4866 
-##                                                                           Coverage.of.social.safety.net.programs....of.population. 
-##                                                                                                                               4831 
-##                                                       Coverage.of.social.safety.net.programs.in.poorest.quintile....of.population. 
-##                                                                                                                               4831 
-##                                                   Coverage.of.unemployment.benefits.and.ALMP.in.poorest.quintile....of.population. 
-##                                                                                                                               5076 
-##                                 Educational.attainment..at.least.completed.lower.secondary..population.25...total......cumulative. 
-##                                                                                                                               3457 
-##                                                                                  Exports.of.goods.and.services..constant.2015.US.. 
-##                                                                                                                               1280 
-##                                                                                                            GDP..constant.2015.US.. 
-##                                                                                                                                470 
-##                                                                                                              GDP.growth..annual... 
-##                                                                                                                                451 
-##                                                                                                 GDP.per.capita..constant.2015.US.. 
-##                                                                                                                                466 
-##                                                                                                   GDP.per.capita.growth..annual... 
-##                                                                                                                                451 
-##                                                                                                            GNI..constant.2015.US.. 
-##                                                                                                                               1681 
-##                                                                                                              GNI.growth..annual... 
-##                                                                                                                               1689 
-##                                                                                                 GNI.per.capita..constant.2015.US.. 
-##                                                                                                                               1681 
-##                                                                                                   GNI.per.capita.growth..annual... 
-##                                                                                                                               1684 
-##                                                                                                                         Gini.index 
-##                                                                                                                               3536 
-##                                                                                                   Income.share.held.by.highest.10. 
-##                                                                                                                               3537 
-##                                                                                                    Income.share.held.by.lowest.10. 
-##                                                                                                                               3537 
-##                                                                                   Marine.protected.areas....of.territorial.waters. 
-##                                                                                                                               4309 
-##                                                                                          Poverty.gap.at..3.65.a.day..2017.PPP..... 
-##                                                                                                                               3536 
-##                                                                                          Poverty.gap.at..6.85.a.day..2017.PPP..... 
-##                                                                                                                               3536 
-##                                                                Poverty.headcount.ratio.at..3.65.a.day..2017.PPP.....of.population. 
-##                                                                                                                               3536 
-##                                                                Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population. 
-##                                                                                                                               3536 
-##                                                                Poverty.headcount.ratio.at.national.poverty.lines....of.population. 
-##                                                                                                                               4300 
-##                                                                 Poverty.headcount.ratio.at.societal.poverty.line....of.population. 
-##                                                                                                                               3536 
-##                                                                  Proportion.of.people.living.below.50.percent.of.median.income.... 
-##                                                                                                                               3549 
-##             Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure.... 
-##                                                                                                                               4488 
-##              Proportion.of.population.pushed.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.expenditure.... 
-##                                                                                                                               4438 
-##     Proportion.of.population.pushed.further.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure.... 
-##                                                                                                                               4491 
-## Proportion.of.population.pushed.further.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.care.expenditure.... 
-##                                                                                                                               4441 
-##    Proportion.of.population.spending.more.than.10..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure.... 
-##                                                                                                                               4372 
-##    Proportion.of.population.spending.more.than.25..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure.... 
-##                                                                                                                               4373 
-##                                                           Prosperity.gap..average.shortfall.from.a.prosperity.standard.of..25.day. 
-##                                                                                                                               3536 
-##                                                                                                 School.enrollment..primary....net. 
-##                                                                                                                               2731 
-##                                                Survey.mean.consumption.or.income.per.capita..total.population..2017.PPP...per.day. 
-##                                                                                                                               5060 
-##                                                                Unemployment..total....of.total.labor.force...modeled.ILO.estimate. 
-##                                                                                                                                433</code></pre>
-<pre class="r"><code># STEP 1: List all outcome variables (after &#39;Regulation&#39;)
-outcomes &lt;- c(
-  &quot;Access.to.clean.fuels.and.technologies.for.cooking....of.population.&quot;,
-  &quot;Account.ownership.at.a.financial.institution.or.with.a.mobile.money.service.provider..poorest.40.....of.population.ages.15..&quot;,
-  &quot;Annualized.average.growth.rate.in.per.capita.real.survey.mean.consumption.or.income..bottom.40..of.population....&quot;,
-  &quot;Carbon.dioxide..CO2..emissions..total..excluding.LULUCF..Mt.CO2e.&quot;,
-  &quot;Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita.&quot;,
-  &quot;Children.in.employment..work.only....of.children.in.employment..ages.7.14.&quot;,
-  &quot;Consumer.price.index..2010...100.&quot;,
-  &quot;Coverage.of.social.insurance.programs....of.population.&quot;,
-  &quot;Coverage.of.social.insurance.programs.in.poorest.quintile....of.population.&quot;,
-  &quot;Coverage.of.social.safety.net.programs....of.population.&quot;,
-  &quot;Coverage.of.social.safety.net.programs.in.poorest.quintile....of.population.&quot;,
-  &quot;Coverage.of.unemployment.benefits.and.ALMP.in.poorest.quintile....of.population.&quot;,
-  &quot;Educational.attainment..at.least.completed.lower.secondary..population.25...total......cumulative.&quot;,
-  &quot;Exports.of.goods.and.services..constant.2015.US..&quot;,
-  &quot;GDP..constant.2015.US..&quot;,
-  &quot;GDP.growth..annual...&quot;,
-  &quot;GDP.per.capita..constant.2015.US..&quot;,
-  &quot;GDP.per.capita.growth..annual...&quot;,
-  &quot;GNI..constant.2015.US..&quot;,
-  &quot;GNI.growth..annual...&quot;,
-  &quot;GNI.per.capita..constant.2015.US..&quot;,
-  &quot;GNI.per.capita.growth..annual...&quot;,
-  &quot;Gini.index&quot;,
-  &quot;Income.share.held.by.highest.10.&quot;,
-  &quot;Income.share.held.by.lowest.10.&quot;,
-  &quot;Marine.protected.areas....of.territorial.waters.&quot;,
-  &quot;Poverty.gap.at..3.65.a.day..2017.PPP.....&quot;,
-  &quot;Poverty.gap.at..6.85.a.day..2017.PPP.....&quot;,
-  &quot;Poverty.headcount.ratio.at..3.65.a.day..2017.PPP.....of.population.&quot;,
-  &quot;Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population.&quot;,
-  &quot;Poverty.headcount.ratio.at.national.poverty.lines....of.population.&quot;,
-  &quot;Poverty.headcount.ratio.at.societal.poverty.line....of.population.&quot;,
-  &quot;Proportion.of.people.living.below.50.percent.of.median.income....&quot;,
-  &quot;Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure....&quot;,
-  &quot;Proportion.of.population.pushed.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.expenditure....&quot;,
-  &quot;Proportion.of.population.pushed.further.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure....&quot;,
-  &quot;Proportion.of.population.pushed.further.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.care.expenditure....&quot;,
-  &quot;Proportion.of.population.spending.more.than.10..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure....&quot;,
-  &quot;Proportion.of.population.spending.more.than.25..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure....&quot;,
-  &quot;Prosperity.gap..average.shortfall.from.a.prosperity.standard.of..25.day.&quot;,
-  &quot;School.enrollment..primary....net.&quot;,
-  &quot;Survey.mean.consumption.or.income.per.capita..total.population..2017.PPP...per.day.&quot;,
-  &quot;Unemployment..total....of.total.labor.force...modeled.ILO.estimate.&quot;
-)
+<pre><code>##                                            ISO3 
+##                                               0 
+##                                            Year 
+##                                               0 
+##                                  Heritage_Score 
+##                                             187 
+##                                 Property.Rights 
+##                                             155 
+##                            Government.Integrity 
+##                                             147 
+##                          Judicial.Effectiveness 
+##                                            3698 
+##                                      Tax.Burden 
+##                                             177 
+##                             Government.Spending 
+##                                             162 
+##                                   Fiscal.Health 
+##                                            3705 
+##                                Business.Freedom 
+##                                             148 
+##                                   Labor.Freedom 
+##                                            1641 
+##                                Monetary.Freedom 
+##                                             154 
+##                                   Trade.Freedom 
+##                                             170 
+##                              Investment.Freedom 
+##                                             164 
+##                               Financial.Freedom 
+##                                             180 
+##                                    fraser_Score 
+##                                            1464 
+##                              Size_of_Government 
+##                                            1429 
+##                       Legal_System_and_Property 
+##                                            1446 
+##                                     Sound_Money 
+##                                            1428 
+##                                      Free_Trade 
+##                                            1781 
+##                                      Regulation 
+##                                            1421 
+##                            Clean cooking access 
+##                                            1390 
+##                 Account ownership (poorest 40%) 
+##                                            4765 
+##                      Income growth (bottom 40%) 
+##                                            5183 
+##                             Total CO₂ emissions 
+##                                             423 
+##                        CO₂ emissions per capita 
+##                                             423 
+##                   Child labor (% children 7–14) 
+##                                            5029 
+##               Consumer Price Index (2010 = 100) 
+##                                             705 
+##                       Social insurance coverage 
+##                                            4866 
+##             Social insurance (poorest quintile) 
+##                                            4866 
+##                             Safety net coverage 
+##                                            4831 
+##                   Safety net (poorest quintile) 
+##                                            4831 
+##        Unemployment benefits (poorest quintile) 
+##                                            5076 
+##               Lower secondary education (% 25+) 
+##                                            3457 
+##                          Exports (constant USD) 
+##                                            1280 
+##                              GDP (constant USD) 
+##                                             470 
+##                                  GDP growth (%) 
+##                                             451 
+##                   GDP per capita (constant USD) 
+##                                             466 
+##                       GDP per capita growth (%) 
+##                                             451 
+##                              GNI (constant USD) 
+##                                            1681 
+##                                  GNI growth (%) 
+##                                            1689 
+##                   GNI per capita (constant USD) 
+##                                            1681 
+##                       GNI per capita growth (%) 
+##                                            1684 
+##                         Gini index (inequality) 
+##                                            3536 
+##                          Income share (top 10%) 
+##                                            3537 
+##                       Income share (bottom 10%) 
+##                                            3537 
+##                      Marine protected areas (%) 
+##                                            4309 
+##                        Poverty gap at $3.65/day 
+##                                            3536 
+##                        Poverty gap at $6.85/day 
+##                                            3536 
+##                        Poverty rate ($3.65/day) 
+##                                            3536 
+##                        Poverty rate ($6.85/day) 
+##                                            3536 
+##                    Poverty rate (national line) 
+##                                            4300 
+##                    Poverty rate (societal line) 
+##                                            3536 
+##                      Below 50% of median income 
+##                                            3549 
+##              Pushed below $3.65 by health costs 
+##                                            4488 
+##         Pushed below 60% median by health costs 
+##                                            4438 
+##      Pushed further below $3.65 by health costs 
+##                                            4491 
+## Pushed further below 60% median by health costs 
+##                                            4441 
+##                  Health spending &gt;10% of income 
+##                                            4372 
+##                  Health spending &gt;25% of income 
+##                                            4373 
+##                     Prosperity gap from $25/day 
+##                                            3536 
+##                 Primary school enrollment (net) 
+##                                            2731 
+##             Mean daily consumption/income (PPP) 
+##                                            5060 
+##                         Unemployment rate (ILO) 
+##                                             433</code></pre>
+<pre class="r"><code>outcomes &lt;- unname(variable_labels)  # Get the cleaned names
 
 # STEP 2: Run regressions and collect results
 results &lt;- lapply(outcomes, function(var) {
-  form_heritage &lt;- as.formula(paste(var, &quot;~ Heritage_Score&quot;))
-  form_fraser &lt;- as.formula(paste(var, &quot;~ fraser_Score&quot;))
-  
+  form_heritage &lt;- as.formula(paste0(&quot;`&quot;, var, &quot;` ~ Heritage_Score&quot;))
+  form_fraser &lt;- as.formula(paste0(&quot;`&quot;, var, &quot;` ~ fraser_Score&quot;))
+
   model_heritage &lt;- lm(form_heritage, data = data)
   model_fraser &lt;- lm(form_fraser, data = data)
-  
-  tidy_heritage &lt;- tidy(model_heritage)[2, ]  # coefficient row
+
+  tidy_heritage &lt;- tidy(model_heritage)[2, ]  # Coefficient row
   tidy_fraser &lt;- tidy(model_fraser)[2, ]
-  
+
   data.frame(
-    Outcome = var,
+    Outcome_Label = var,
     Coef_Heritage = tidy_heritage$estimate,
     P_Heritage = tidy_heritage$p.value,
     R2_Heritage = summary(model_heritage)$r.squared,
@@ -640,20 +603,12 @@ results &lt;- lapply(outcomes, function(var) {
   )
 })
 
-# STEP 3: Combine and sort, then add readable variable names
+# STEP 3: Combine results and sort
 regression_summary &lt;- do.call(rbind, results) %&gt;%
-  mutate(
-    Min_P = pmin(P_Heritage, P_Fraser),
-    Outcome_Label = variable_labels[Outcome]
-  ) %&gt;%
+  mutate(Min_P = pmin(P_Heritage, P_Fraser)) %&gt;%
   arrange(Min_P)
 
-# Optional: Drop raw variable name column for a cleaner table
-regression_summary &lt;- regression_summary %&gt;%
-  select(Outcome_Label, Coef_Heritage, P_Heritage, R2_Heritage,
-         Coef_Fraser, P_Fraser, R2_Fraser, Min_P)
-
-# STEP 4: View top significant results
+# STEP 4: Display result
 print(regression_summary)</code></pre>
 <pre><code>##                                      Outcome_Label Coef_Heritage    P_Heritage
 ## 1                    GDP per capita (constant USD)  1.055743e+03  0.000000e+00
@@ -743,6 +698,15 @@ print(regression_summary)</code></pre>
 ## 41 3.112862e-03 -9.919743e-02  6.397666e-01 2.569141e-04  9.219840e-02
 ## 42 7.419033e-04  4.815744e-02  6.042994e-01 8.971033e-05  1.063496e-01
 ## 43 3.957612e-05 -2.610225e-01  1.097336e-01 3.251295e-03  1.097336e-01</code></pre>
+<pre class="r"><code># Export to CSV
+write.csv(regression_summary, &quot;regression_summary.csv&quot;, row.names = FALSE)
+
+# LaTeX table output (using knitr::kable)
+knitr::kable(regression_summary,
+             format = &quot;latex&quot;,
+             booktabs = TRUE,
+             digits = 3,
+             caption = &quot;Regression Results for Economic Indicators on Heritage and Fraser Index Scores&quot;) </code></pre>
 <pre class="r"><code>library(dplyr)
 library(ggplot2)
 library(visreg)

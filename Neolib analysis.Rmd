@@ -3,7 +3,7 @@ title: "Neolib analysis"
 output: html_document
 date: "2025-04-15"
 ---
-```{r setup}
+```{r setup, echo=FALSE}
 library(dplyr)
 library(ggplot2)
 library(visreg)
@@ -11,10 +11,15 @@ library(sf)
 library(broom)
 library(rnaturalearth)
 library(rnaturalearthdata)
+library(plm)
+library(tidyr)
+library(readr)
+library(gridExtra)
+library(grid)
 ```
 
 
-```{r data}
+```{r data, echo=FALSE}
 data <- read.csv('merged_data.csv', header = TRUE, stringsAsFactors = FALSE)
 
 data <- data[!is.na(data$ISO3), ]
@@ -80,75 +85,42 @@ variable_labels <- c(
   "Survey.mean.consumption.or.income.per.capita..total.population..2017.PPP...per.day." = "Mean daily consumption/income (PPP)",
   "Unemployment..total....of.total.labor.force...modeled.ILO.estimate." = "Unemployment rate (ILO)"
 )
+
+# Step 1: Filter to valid renames
+valid_labels <- variable_labels[names(variable_labels) %in% colnames(data)]
+
+# Step 2: Reverse the mapping for rename()
+renaming_vector <- setNames(names(valid_labels), valid_labels)
+
+# Step 3: Rename safely
+data <- data %>% rename(!!!renaming_vector)
+
+
+
 ```
 
 
 
-```{r examine data}
+```{r examine data, echo=FALSE}
 # Check total missing values per column
 sapply(data, function(x) sum(is.na(x)))
 ```
-```{r regression}
-# STEP 1: List all outcome variables (after 'Regulation')
-outcomes <- c(
-  "Access.to.clean.fuels.and.technologies.for.cooking....of.population.",
-  "Account.ownership.at.a.financial.institution.or.with.a.mobile.money.service.provider..poorest.40.....of.population.ages.15..",
-  "Annualized.average.growth.rate.in.per.capita.real.survey.mean.consumption.or.income..bottom.40..of.population....",
-  "Carbon.dioxide..CO2..emissions..total..excluding.LULUCF..Mt.CO2e.",
-  "Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita.",
-  "Children.in.employment..work.only....of.children.in.employment..ages.7.14.",
-  "Consumer.price.index..2010...100.",
-  "Coverage.of.social.insurance.programs....of.population.",
-  "Coverage.of.social.insurance.programs.in.poorest.quintile....of.population.",
-  "Coverage.of.social.safety.net.programs....of.population.",
-  "Coverage.of.social.safety.net.programs.in.poorest.quintile....of.population.",
-  "Coverage.of.unemployment.benefits.and.ALMP.in.poorest.quintile....of.population.",
-  "Educational.attainment..at.least.completed.lower.secondary..population.25...total......cumulative.",
-  "Exports.of.goods.and.services..constant.2015.US..",
-  "GDP..constant.2015.US..",
-  "GDP.growth..annual...",
-  "GDP.per.capita..constant.2015.US..",
-  "GDP.per.capita.growth..annual...",
-  "GNI..constant.2015.US..",
-  "GNI.growth..annual...",
-  "GNI.per.capita..constant.2015.US..",
-  "GNI.per.capita.growth..annual...",
-  "Gini.index",
-  "Income.share.held.by.highest.10.",
-  "Income.share.held.by.lowest.10.",
-  "Marine.protected.areas....of.territorial.waters.",
-  "Poverty.gap.at..3.65.a.day..2017.PPP.....",
-  "Poverty.gap.at..6.85.a.day..2017.PPP.....",
-  "Poverty.headcount.ratio.at..3.65.a.day..2017.PPP.....of.population.",
-  "Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population.",
-  "Poverty.headcount.ratio.at.national.poverty.lines....of.population.",
-  "Poverty.headcount.ratio.at.societal.poverty.line....of.population.",
-  "Proportion.of.people.living.below.50.percent.of.median.income....",
-  "Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure....",
-  "Proportion.of.population.pushed.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.expenditure....",
-  "Proportion.of.population.pushed.further.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure....",
-  "Proportion.of.population.pushed.further.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.care.expenditure....",
-  "Proportion.of.population.spending.more.than.10..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure....",
-  "Proportion.of.population.spending.more.than.25..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure....",
-  "Prosperity.gap..average.shortfall.from.a.prosperity.standard.of..25.day.",
-  "School.enrollment..primary....net.",
-  "Survey.mean.consumption.or.income.per.capita..total.population..2017.PPP...per.day.",
-  "Unemployment..total....of.total.labor.force...modeled.ILO.estimate."
-)
+```{r regression, echo=FALSE}
+outcomes <- unname(variable_labels)  # Get the cleaned names
 
 # STEP 2: Run regressions and collect results
 results <- lapply(outcomes, function(var) {
-  form_heritage <- as.formula(paste(var, "~ Heritage_Score"))
-  form_fraser <- as.formula(paste(var, "~ fraser_Score"))
-  
+  form_heritage <- as.formula(paste0("`", var, "` ~ Heritage_Score"))
+  form_fraser <- as.formula(paste0("`", var, "` ~ fraser_Score"))
+
   model_heritage <- lm(form_heritage, data = data)
   model_fraser <- lm(form_fraser, data = data)
-  
-  tidy_heritage <- tidy(model_heritage)[2, ]  # coefficient row
+
+  tidy_heritage <- tidy(model_heritage)[2, ]  # Coefficient row
   tidy_fraser <- tidy(model_fraser)[2, ]
-  
+
   data.frame(
-    Outcome = var,
+    Outcome_Label = var,
     Coef_Heritage = tidy_heritage$estimate,
     P_Heritage = tidy_heritage$p.value,
     R2_Heritage = summary(model_heritage)$r.squared,
@@ -158,22 +130,418 @@ results <- lapply(outcomes, function(var) {
   )
 })
 
-# STEP 3: Combine and sort, then add readable variable names
+# STEP 3: Combine results and sort
 regression_summary <- do.call(rbind, results) %>%
-  mutate(
-    Min_P = pmin(P_Heritage, P_Fraser),
-    Outcome_Label = variable_labels[Outcome]
-  ) %>%
+  mutate(Min_P = pmin(P_Heritage, P_Fraser)) %>%
   arrange(Min_P)
 
-# Optional: Drop raw variable name column for a cleaner table
-regression_summary <- regression_summary %>%
-  select(Outcome_Label, Coef_Heritage, P_Heritage, R2_Heritage,
-         Coef_Fraser, P_Fraser, R2_Fraser, Min_P)
-
-# STEP 4: View top significant results
+# STEP 4: Display result
 print(regression_summary)
 
+# Export to CSV
+write.csv(regression_summary, "regression_summary.csv", row.names = FALSE)
+
+
+```
+
+```{r fixed effects, echo=FALSE}
+# Step 1: Create safe outcome names
+outcomes_clean <- unname(variable_labels)  # Pretty names
+outcomes_safe <- make.names(outcomes_clean)  # Safe variable names
+
+# Step 2: Rename columns to safe names
+colnames(data) <- make.names(colnames(data))
+data_fe <- data  # Use a copy for fixed effects
+
+# Step 3: Run Fixed Effects regressions
+fe_results <- list()
+
+for (i in seq_along(outcomes_safe)) {
+  var_safe <- outcomes_safe[i]
+  var_label <- outcomes_clean[i]
+
+  if (!var_safe %in% colnames(data_fe)) next
+
+  # Skip if all values are NA
+  if (all(is.na(data_fe[[var_safe]]))) {
+    cat("Skipping", var_label, "- all values are NA\n")
+    next
+  }
+
+  cat("Running Fixed Effects for:", var_label, "\n")
+
+  form_heritage <- as.formula(paste0("`", var_safe, "` ~ Heritage_Score"))
+  form_fraser <- as.formula(paste0("`", var_safe, "` ~ fraser_Score"))
+
+  # Run models
+  model_heritage <- tryCatch(
+    plm(form_heritage, data = data_fe, index = c("ISO3", "Year"),
+        model = "within", effect = "twoways"),
+    error = function(e) return(NULL)
+  )
+  model_fraser <- tryCatch(
+    plm(form_fraser, data = data_fe, index = c("ISO3", "Year"),
+        model = "within", effect = "twoways"),
+    error = function(e) return(NULL)
+  )
+
+  # Skip if either model failed
+  if (is.null(model_heritage) | is.null(model_fraser)) {
+    cat("Skipping", var_label, "- model could not be estimated\n")
+    next
+  }
+
+  tidy_h <- tidy(model_heritage)[1, ]
+  tidy_f <- tidy(model_fraser)[1, ]
+
+  fe_results[[var_label]] <- data.frame(
+    Outcome_Label = var_label,
+    Coef_H_FE = tidy_h$estimate,
+    P_H_FE = tidy_h$p.value,
+    Coef_F_FE = tidy_f$estimate,
+    P_F_FE = tidy_f$p.value
+  )
+}
+
+# Combine and sort
+fe_summary <- do.call(rbind, fe_results) %>%
+  mutate(Min_P = pmin(P_H_FE, P_F_FE)) %>%
+  arrange(Min_P)
+
+# Output results
+print(fe_summary)
+write.csv(fe_summary, "fixed_effects_summary.csv", row.names = FALSE)
+```
+```{r did, echo=FALSE}
+# ── 0.  build safe-name ↔ pretty-label lookup ─────────────────────────
+safe_lookup <- tibble(
+  safe   = make.names(unname(variable_labels)),   # after make.names()
+  pretty = unname(variable_labels)
+) %>% dplyr::filter(safe %in% names(data))        # keep only existing cols
+
+outcomes_use <- safe_lookup$safe                  # these really exist
+cat("columns matched:", length(outcomes_use), "\n")   # should now be > 0
+
+# ── 1.  triggers and treatment years (unchanged) ──────────────────────
+data_diff <- data %>%
+  arrange(ISO3, Year) %>%
+  group_by(ISO3) %>%
+  mutate(
+    Heritage_Diff = Heritage_Score - dplyr::lag(Heritage_Score, order_by = Year),
+    Fraser_Diff   = fraser_Score   - dplyr::lag(fraser_Score,   order_by = Year),
+    h_sd = sd(Heritage_Diff, na.rm = TRUE),
+    f_sd = sd(Fraser_Diff,  na.rm = TRUE),
+    Big_Heritage_Change = abs(Heritage_Diff) >= 2 * h_sd,
+    Big_Fraser_Change   = abs(Fraser_Diff)   >= 2 * f_sd,
+    Heritage_Trigger_Year = ifelse(Big_Heritage_Change, Year, NA_real_),
+    Fraser_Trigger_Year   = ifelse(Big_Fraser_Change,   Year, NA_real_)
+  ) %>% ungroup()
+
+treatment_info <- data_diff %>%
+  group_by(ISO3) %>%
+  summarise(
+    Heritage_Treatment_Year = if (all(is.na(Heritage_Trigger_Year)))
+                                NA_real_ else min(Heritage_Trigger_Year, na.rm = TRUE),
+    Fraser_Treatment_Year   = if (all(is.na(Fraser_Trigger_Year)))
+                                NA_real_ else min(Fraser_Trigger_Year,   na.rm = TRUE),
+    .groups = "drop")
+
+median_year_H <- median(treatment_info$Heritage_Treatment_Year, na.rm = TRUE)
+median_year_F <- median(treatment_info$Fraser_Treatment_Year,   na.rm = TRUE)
+
+data_did <- data %>%
+  left_join(treatment_info, by = "ISO3") %>%
+  mutate(
+    Heritage_Treated = !is.na(Heritage_Treatment_Year),
+    Fraser_Treated   = !is.na(Fraser_Treatment_Year),
+
+    Post_Heritage = ifelse(Heritage_Treated,
+                           Year > Heritage_Treatment_Year,
+                           Year >= median_year_H),
+    Post_Fraser   = ifelse(Fraser_Treated,
+                           Year > Fraser_Treatment_Year,
+                           Year >= median_year_F),
+
+    Heritage_Treated = as.numeric(Heritage_Treated),
+    Fraser_Treated   = as.numeric(Fraser_Treated),
+    Post_Heritage    = as.numeric(Post_Heritage),
+    Post_Fraser      = as.numeric(Post_Fraser)
+  )
+
+print(table(data_did$Heritage_Treated, data_did$Post_Heritage))  # quick sanity
+
+# ── 2.  run DiD with year FE ──────────────────────────────────────────
+results_did <- list()
+
+for (safe in outcomes_use) {
+  pretty <- safe_lookup$pretty[safe_lookup$safe == safe]
+
+  form_h <- as.formula(
+    paste0('`', safe, '` ~ Heritage_Treated + Post_Heritage + ',
+           'Heritage_Treated:Post_Heritage + factor(Year)'))
+  form_f <- as.formula(
+    paste0('`', safe, '` ~ Fraser_Treated + Post_Fraser + ',
+           'Fraser_Treated:Post_Fraser + factor(Year)'))
+
+  model_h <- lm(form_h, data = data_did)
+  model_f <- lm(form_f, data = data_did)
+
+  coef_h <- tidy(model_h) %>% dplyr::filter(term == "Heritage_Treated:Post_Heritage")
+  coef_f <- tidy(model_f) %>% dplyr::filter(term == "Fraser_Treated:Post_Fraser")
+
+  if (nrow(coef_h) + nrow(coef_f) > 0) {
+    results_did[[safe]] <- data.frame(
+      Outcome_pretty = pretty,
+      Outcome_safe   = safe,
+      Coef_H_DID     = coef_h$estimate,
+      P_H_DID        = coef_h$p.value,
+      Coef_F_DID     = coef_f$estimate,
+      P_F_DID        = coef_f$p.value)
+  }
+}
+
+# ── 3.  output ────────────────────────────────────────────────────────
+if (length(results_did)) {
+  did_summary <- dplyr::bind_rows(results_did) %>%
+    dplyr::mutate(Min_P = pmin(P_H_DID, P_F_DID, na.rm = TRUE)) %>%
+    dplyr::arrange(Min_P)
+  print(did_summary)
+  write.csv(did_summary, "did_results.csv", row.names = FALSE)
+} else {
+  message("No valid DiD results.")
+}
+```
+
+
+
+```{r plots, echo=FALSE}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+
+# Load and clean data
+data <- read.csv("merged_data.csv", stringsAsFactors = FALSE)
+colnames(data) <- make.names(colnames(data))
+
+# Variable mapping: dataset column → plot title
+variable_labels <- c(
+  "GDP.per.capita..constant.2015.US.." = "GDP per capita (constant USD)",
+  "Gini.index" = "Gini index (inequality)",
+  "Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population." = "Poverty rate ($6.85/day)",
+  "Access.to.clean.fuels.and.technologies.for.cooking....of.population." = "Clean cooking access",
+  "Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita." = "CO₂ emissions per capita",
+  "Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure...." = "Pushed below $3.65 by health costs"
+)
+
+# Store plots
+plots <- list()
+
+# Loop to generate each plot
+for (var in names(variable_labels)) {
+  pretty <- variable_labels[[var]]
+  
+  df <- data %>%
+    filter(!is.na(!!sym(var)), !is.na(Heritage_Score)) %>%
+    mutate(Y = !!sym(var))
+
+  p <- ggplot(df, aes(x = Heritage_Score, y = Y)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(method = "lm", color = "steelblue") +
+    labs(title = pretty, x = "Heritage Score", y = NULL) +
+    theme_minimal(base_size = 13) +
+    theme(plot.title = element_text(face = "bold", size = 11))
+
+  plots[[pretty]] <- p
+}
+
+# Combine plots into a panel
+grid.arrange(
+  grobs = plots,
+  ncol = 3,
+  top = grid::textGrob("Linear Regression Panel: Heritage Score Effects",
+                       gp = grid::gpar(fontsize = 16, fontface = "bold"))
+)
+
+# Optional: Save panel
+# ggsave("panel_linear_regression.png", arrangeGrob(grobs = plots, ncol = 3), width = 14, height = 9)
+
+
+```
+
+```{r plots did}
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(grid)
+
+# Variable mapping
+variable_labels <- c(
+  "GDP.per.capita..constant.2015.US.." = "GDP per capita (constant USD)",
+  "Gini.index" = "Gini index (inequality)",
+  "Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population." = "Poverty rate ($6.85/day)",
+  "Access.to.clean.fuels.and.technologies.for.cooking....of.population." = "Clean cooking access",
+  "Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita." = "CO₂ emissions per capita",
+  "Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure...." = "Pushed below $3.65 by health costs"
+)
+
+label_to_column <- setNames(names(variable_labels), variable_labels)
+selected_pretty <- unname(variable_labels)
+
+# Prepare plot list
+plots <- list()
+
+for (pretty in selected_pretty) {
+  safe <- label_to_column[[pretty]]
+  
+  # Skip if column is not in data
+  if (!(safe %in% colnames(data_did))) next
+
+  plot_data <- data_did %>%
+    filter(!is.na(!!sym(safe))) %>%
+    group_by(Heritage_Treated, Post_Heritage) %>%
+    summarize(mean_outcome = mean(!!sym(safe), na.rm = TRUE), .groups = "drop") %>%
+    mutate(
+      Group = ifelse(Heritage_Treated == 1, "Treatment", "Control"),
+      Time = factor(ifelse(Post_Heritage == 1, "Post", "Pre"), levels = c("Pre", "Post"))
+    )
+
+  p <- ggplot(plot_data, aes(x = Time, y = mean_outcome, group = Group, color = Group)) +
+    geom_line(size = 1.2) +
+    geom_point(size = 3) +
+    scale_color_manual(values = c("Treatment" = "#E41A1C", "Control" = "#377EB8")) +
+    labs(title = pretty, x = NULL, y = NULL, color = "Group") +
+    theme_minimal(base_size = 12) +
+    theme(
+      plot.title = element_text(size = 11, face = "bold"),
+      legend.position = "bottom"
+    )
+
+  plots[[pretty]] <- p
+}
+
+# Extract legend from one plot
+get_legend <- function(p) {
+  tmp <- ggplotGrob(p + theme(legend.position = "bottom"))$grobs
+  legend <- tmp[[which(sapply(tmp, function(x) x$name) == "guide-box")]]
+  return(legend)
+}
+
+shared_legend <- get_legend(plots[[1]])
+
+# Arrange panel without legends
+plot_panels <- lapply(plots, function(p) p + theme(legend.position = "none"))
+
+panel <- grid.arrange(
+  grobs = plot_panels,
+  ncol = 3,
+  top = textGrob("Difference-in-Differences Panel", gp = gpar(fontsize = 16, fontface = "bold")),
+  bottom = shared_legend
+)
+
+# Save
+ggsave("panel_did_selected.png", panel, width = 14, height = 9)
+
+```
+
+```{r plot fe}
+library(ggplot2)
+library(dplyr)
+library(plm)
+library(gridExtra)
+library(grid)
+
+# Define variable labels
+variable_labels <- c(
+  "GDP.per.capita..constant.2015.US.." = "GDP per capita (constant USD)",
+  "Gini.index" = "Gini index (inequality)",
+  "Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population." = "Poverty rate ($6.85/day)",
+  "Access.to.clean.fuels.and.technologies.for.cooking....of.population." = "Clean cooking access",
+  "Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita." = "CO₂ emissions per capita",
+  "Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure...." = "Pushed below $3.65 by health costs"
+)
+
+plots <- list()
+shared_legend <- NULL
+
+# Temporary plot to extract the shared legend
+tmp_plot <- NULL
+
+for (i in seq_along(variable_labels)) {
+  var <- names(variable_labels)[i]
+  pretty <- variable_labels[[i]]
+
+  df <- data_did %>%
+    filter(!is.na(!!sym(var)), !is.na(Heritage_Score)) %>%
+    mutate(Y = !!sym(var))
+
+  ols_model <- lm(Y ~ Heritage_Score, data = df)
+  fe_model <- plm(Y ~ Heritage_Score, data = df, index = c("ISO3", "Year"), model = "within")
+
+  ols_slope <- coef(ols_model)["Heritage_Score"]
+  fe_slope <- coef(fe_model)["Heritage_Score"]
+
+  x_vals <- seq(min(df$Heritage_Score), max(df$Heritage_Score), length.out = 100)
+  lines_data <- data.frame(
+    x = rep(x_vals, 2),
+    y = c(coef(ols_model)[1] + ols_slope * x_vals,
+          mean(df$Y) + fe_slope * (x_vals - mean(df$Heritage_Score))),
+    Model = rep(c("OLS", "Fixed Effects"), each = 100)
+  )
+
+  # Smooth OLS with confidence ribbon
+p <- ggplot(df, aes(x = Heritage_Score, y = Y)) +
+  geom_point(alpha = 0.4, size = 1.3) +
+  geom_smooth(method = "lm", aes(color = "OLS", linetype = "OLS"), se = TRUE, fill = "grey80", color = "blue", size = 1) +
+  geom_abline(slope = fe_slope, intercept = mean(df$Y) - fe_slope * mean(df$Heritage_Score),
+              aes(color = "Fixed Effects", linetype = "Fixed Effects"), size = 1) +
+  scale_color_manual(values = c("OLS" = "blue", "Fixed Effects" = "#E41A1C")) +
+  scale_linetype_manual(values = c("OLS" = "solid", "Fixed Effects" = "solid")) +
+  labs(
+    title = pretty,
+    x = "Heritage Score",
+    y = NULL,
+    color = "Model",
+    linetype = "Model"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title = element_text(size = 11, face = "bold"),
+    legend.position = "none"
+  )
+
+
+  plots[[pretty]] <- p
+
+  # Capture the first plot to extract legend later
+  if (is.null(tmp_plot)) {
+    tmp_plot <- ggplot(df, aes(x = Heritage_Score, y = Y)) +
+      geom_point(alpha = 0.4, size = 1.3) +
+      geom_line(data = lines_data, aes(x = x, y = y, color = Model, linetype = Model), size = 1) +
+      scale_color_manual(values = c("OLS" = "blue", "Fixed Effects" = "#E41A1C")) +
+      scale_linetype_manual(values = c("OLS" = "solid", "Fixed Effects" = "solid")) +
+      labs(
+        color = "Model",
+        linetype = "Model"
+      ) +
+      theme(legend.position = "bottom")
+  }
+}
+
+# Extract shared legend
+g <- ggplotGrob(tmp_plot)
+shared_legend <- g$grobs[[which(sapply(g$grobs, function(x) x$name) == "guide-box")]]
+
+# Combine grid + legend
+panel_with_legend <- grid.arrange(
+  arrangeGrob(grobs = plots, ncol = 3),
+  shared_legend,
+  nrow = 2,
+  heights = c(10, 1),
+  top = textGrob("OLS vs Fixed Effects Regression Lines", gp = gpar(fontsize = 16, fontface = "bold"))
+)
+
+# Save
+ggsave("panel_fe_vs_ols.png", panel_with_legend, width = 14, height = 10)
 
 
 ```
