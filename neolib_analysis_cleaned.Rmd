@@ -8,7 +8,7 @@ output: html_document
 pkgs <- c("tidyverse", "plm", "broom", "glue",
           "gridExtra", "grid",
           "sf", "visreg",
-          "rnaturalearth", "rnaturalearthdata")
+          "rnaturalearth", "rnaturalearthdata", "cowplot", "patchwork")
 
 invisible(lapply(pkgs, \(p){
   if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
@@ -182,9 +182,6 @@ reg_tbl <- map2_dfr(
     scores, reg_summary, col = col, pretty = pretty, data = df
   )
 )
-
-write_csv(reg_tbl, "regression_summary_clean.csv")
-message("Saved regression_summary_clean.csv")
 ```
 
 ## DiD Regression
@@ -265,73 +262,109 @@ did_tbl <- purrr::map2_dfr(
   )
 )
 
-readr::write_csv(did_tbl, "did_results_clean.csv")
-message("Saved did_results_clean.csv")
 ```
 
 ```{r plot helpers}
+# utility ────────────────────────────────────────────────────────────────
+add_zero_floor <- function(p, v) {
+  if (length(v) && min(v, na.rm = TRUE) >= 0)
+    p + scale_y_continuous(limits = c(0, NA))   # start axis at 0
+  else
+    p                                           # leave axis untouched
+}
+
+# 1 ── OLS scatter ───────────────────────────────────────────────────────
 plot_scatter <- function(col, pretty, data) {
-  data %>%
+
+  df_local <- data %>%
     filter(!is.na(.data[[col]]), !is.infinite(.data[[col]]),
-           !is.na(Heritage_Score), !is.infinite(Heritage_Score)) %>%
-    ggplot(aes(x = Heritage_Score, y = .data[[col]])) +
-    geom_point(alpha = 0.4) +
-    geom_smooth(method = "lm", se = TRUE, colour = "steelblue", linewidth = 1) +
-    labs(title = pretty, x = "Heritage Score", y = NULL) +
-    theme_minimal(base_size = 13)
+           !is.na(Heritage_Score), !is.infinite(Heritage_Score))
+
+  p <- ggplot(df_local, aes(Heritage_Score, .data[[col]])) +
+         geom_point(aes(colour = "Observations"), alpha = 0.4) +
+         geom_smooth(aes(colour = "OLS fit"),
+                     method = "lm", se = TRUE, linewidth = 1,
+                     formula = y ~ x) +
+         scale_colour_manual(name = NULL,
+                             values = c(Observations = "black",
+                                        `OLS fit`   = "steelblue")) +
+         labs(title = pretty, x = "Heritage Score", y = NULL) +
+         theme_minimal(base_size = 13) +
+         theme(legend.position = "bottom")
+
+  add_zero_floor(p, df_local[[col]])
 }
 
-plot_fixed_effects <- function(col, pretty, data){
-  df_clean <- data %>%
-    filter(!is.na(.data[[col]]), !is.infinite(.data[[col]]),
-           !is.na(Heritage_Score), !is.infinite(Heritage_Score)) %>%
-    group_by(ISO3) %>%
-    mutate(
-      y_iso = mean(.data[[col]], na.rm = TRUE),
-      x_iso = mean(Heritage_Score, na.rm = TRUE)
-    ) %>%
-    ungroup() %>%
-    group_by(Year) %>%
-    mutate(
-      y_year = mean(.data[[col]], na.rm = TRUE),
-      x_year = mean(Heritage_Score, na.rm = TRUE)
-    ) %>%
-    ungroup() %>%
-    mutate(
-      y_demeaned = .data[[col]] - y_iso - y_year + mean(.data[[col]], na.rm = TRUE),
-      x_demeaned = Heritage_Score - x_iso - x_year + mean(Heritage_Score, na.rm = TRUE)
-    )
-
-  ggplot(df_clean, aes(x = x_demeaned, y = y_demeaned)) +
-    geom_point(alpha = 0.4) +
-    geom_smooth(method = "lm", se = TRUE, colour = "darkgreen", linewidth = 1) +
-    labs(title = paste(pretty, "(Fixed Effects)"),
-         x = "Heritage Score (demeaned)", y = NULL) +
-    theme_minimal(base_size = 13)
-}
-
-
+# 2 ── DiD mean-difference plot ──────────────────────────────────────────
 plot_did <- function(col, pretty, dat,
                      treat_var = "Heritage_Treated",
                      post_var  = "Post_Heritage") {
-  
-  dat %>% 
-    filter(!is.na(.data[[treat_var]]), !is.na(.data[[post_var]])) %>% 
-    mutate(
-      Group  = if_else(.data[[treat_var]] == 1, "Treatment", "Control"),
-      Period = factor(if_else(.data[[post_var]]  == 1, "Post", "Pre"),
-                      levels = c("Pre", "Post"))
-    ) %>% 
-    group_by(Group, Period) %>% 
-    summarise(y = mean(.data[[col]], na.rm = TRUE), .groups = "drop") %>% 
-    ggplot(aes(Period, y, colour = Group, group = Group)) +
-    geom_line(size = 1.2) +
-    geom_point(size = 3) +
-    scale_colour_manual(values = c(Control = "#377EB8",
-                                   Treatment = "#E41A1C")) +
-    labs(title = pretty, x = NULL, y = NULL, colour = NULL) +
-    theme_minimal(base_size = 12) +
-    theme(legend.position = "bottom")
+
+  agg <- dat %>%
+    filter(!is.na(.data[[treat_var]]), !is.na(.data[[post_var]])) %>%
+    mutate(Group  = if_else(.data[[treat_var]] == 1, "Treatment", "Control"),
+           Period = factor(if_else(.data[[post_var]]  == 1, "Post", "Pre"),
+                           levels = c("Pre", "Post"))) %>%
+    group_by(Group, Period) %>%
+    summarise(y = mean(.data[[col]], na.rm = TRUE), .groups = "drop")
+
+  p <- ggplot(agg, aes(Period, y, colour = Group, group = Group)) +
+         geom_line(size = 1.2) +
+         geom_point(size = 3) +
+         scale_colour_manual(name = "Group",
+                             values = c(Control   = "#377EB8",
+                                        Treatment = "#E41A1C")) +
+         labs(title = pretty, x = NULL, y = NULL) +
+         theme_minimal(base_size = 12) +
+         theme(legend.position = "bottom")
+
+  add_zero_floor(p, agg$y)
+}
+
+# 3 ── FE vs OLS overlay ────────────────────────────────────────────────
+plot_fe_vs_ols <- function(col, pretty, data, show_legend = TRUE) {
+
+  df_local <- data %>%
+    filter(!is.na(.data[[col]]), !is.na(Heritage_Score)) %>%
+    mutate(Y = .data[[col]])
+
+  ols_model <- lm(Y ~ Heritage_Score, data = df_local)
+  fe_model  <- plm(Y ~ Heritage_Score, data = df_local,
+                   index = c("ISO3", "Year"), model = "within")
+
+  fe_slope <- coef(fe_model)["Heritage_Score"]
+  x_vals   <- seq(min(df_local$Heritage_Score, na.rm = TRUE),
+                  max(df_local$Heritage_Score, na.rm = TRUE), length.out = 100)
+
+  line_df <- data.frame(
+    x     = x_vals,
+    y_ols = predict(ols_model,
+                    newdata = data.frame(Heritage_Score = x_vals)),
+    y_fe  = mean(df_local$Y, na.rm = TRUE) +
+            fe_slope * (x_vals - mean(df_local$Heritage_Score,
+                                      na.rm = TRUE))
+  )
+
+  p <- ggplot(df_local, aes(Heritage_Score, Y)) +
+         geom_point(alpha = 0.3, size = 1.2) +
+         geom_line(data = line_df,
+                   aes(x, y_ols, colour = "OLS",  linetype = "OLS"),
+                   size = 1) +
+         geom_line(data = line_df,
+                   aes(x, y_fe,  colour = "Fixed Effects",
+                       linetype = "Fixed Effects"), size = 1) +
+         scale_colour_manual(name = "Model",
+                             values = c(OLS           = "blue",
+                                        `Fixed Effects` = "#E41A1C")) +
+         scale_linetype_manual(name = "Model",
+                               values = c(OLS = "solid",
+                                          `Fixed Effects` = "solid")) +
+         labs(title = pretty, x = "Heritage Score", y = NULL) +
+         theme_minimal(base_size = 12) +
+         theme(legend.position = if (show_legend) "bottom" else "none",
+               plot.title      = element_text(size = 11, face = "bold"))
+
+  add_zero_floor(p, df_local$Y)
 }
 
 ```
@@ -348,48 +381,85 @@ preferred <- c(
 
 chosen_pretty <- intersect(preferred, variable_df$pretty)
 if (length(chosen_pretty) == 0) chosen_pretty <- head(variable_df$pretty, 6)
+chosen_df <- variable_df %>% filter(pretty %in% chosen_pretty)
 
-if (length(chosen_pretty) > 0){
-  chosen_df <- variable_df %>% filter(pretty %in% chosen_pretty)
-  
-  scatter_plots <- map2(chosen_df$col, chosen_df$pretty,
-                        ~ plot_scatter(.x, .y, df))
-  scatter_panel <- gridExtra::grid.arrange(
-    grobs = scatter_plots, ncol = 3,
-    top   = grid::textGrob("OLS: Heritage Score vs. Outcomes",
-                           gp=gpar(fontsize=15,fontface="bold")))
-  ggsave("panel_scatter_heritage.png", scatter_panel, width = 14, height = 9)
-  
-  did_plots <- map2(
-    chosen_df$col, chosen_df$pretty,
-    ~ plot_did(.x, .y, data_did, "Heritage_Treated", "Post_Heritage")
+theme_set(
+  theme_grey() +                         # start from a clean stock theme
+  theme(title = element_text())          # insert a blank <element_text>
+)
+## ── build each list of ggplots ─────────────────────────────────────────────
+scatter_plots <- map2(chosen_df$col, chosen_df$pretty,
+                      ~ plot_scatter(.x, .y, df) +
+                        theme(legend.position = "none"))      # ← suppress!
+
+did_plots     <- map2(chosen_df$col, chosen_df$pretty,
+                      ~ plot_did(.x, .y, data_did,
+                                 "Heritage_Treated", "Post_Heritage"))
+
+fe_plots      <- map2(chosen_df$col, chosen_df$pretty,
+                      ~ plot_fe_vs_ols(.x, .y, df, show_legend = TRUE))
+
+## 1. OLS scatter panel  ────────────────────────────────────────────────
+scatter_fig <- (
+  wrap_plots(scatter_plots, ncol = 3) +
+  plot_annotation(title = "OLS: Heritage Score vs. Outcomes")
+) & theme(plot.title = element_text(size = 15, face = "bold"))
+suppressWarnings(print(scatter_fig))
+
+## 2.  Difference‑in‑Differences panel  ─────────────────────────────
+did_fig <- (
+  wrap_plots(did_plots, ncol = 3) +          # row of six plots
+  plot_layout(guides = "collect") +          # merge identical legends
+  plot_annotation(
+    title = "Difference in Differences: Heritage Shocks"
   )
-  
-  
-  did_panel <- gridExtra::grid.arrange(
-    grobs = did_plots, ncol = 3,
-    top = grid::textGrob("Difference-in-Differences: Heritage Shocks",
-                         gp = gpar(fontsize = 15, fontface = "bold"))
+) & theme(                                   # ONE global theme call
+      legend.position = "bottom",
+      plot.title      = element_text(size = 15, face = "bold")
+    )
+
+print(did_fig)
+
+
+## 3. FE-vs-OLS panel with merged legend  ───────────────────────────────
+fe_fig <- (
+  wrap_plots(fe_plots, ncol = 3) +
+  plot_layout(guides = "collect") +
+  plot_annotation(
+    title = "OLS vs Fixed‑Effects Regression Lines"
   )
-  ggsave("panel_did_heritage.png", did_panel, width = 14, height = 9)
-  
-  message("Panels saved: panel_scatter_heritage.png, panel_did_heritage.png")
+) & theme(
+      legend.position = "bottom",
+      plot.title      = element_text(size = 15, face = "bold")
+    )
+
+suppressWarnings(print(fe_fig))
+
+
+```
+```{r Single Plot}
+# Choose a single variable to display
+selected_var   <- "GDP per capita (constant USD)"  # Change this as needed
+selected_entry <- variable_df %>% filter(pretty == selected_var)
+
+if (nrow(selected_entry) == 1) {
+  col <- selected_entry$col
+  pretty <- selected_entry$pretty
+
+  # -------- OLS Scatter Plot --------
+p_scatter <- plot_scatter(col, pretty, df)
+suppressWarnings(print(p_scatter))                      # ← force draw
+
+# -------- DiD Plot --------
+p_did <- plot_did(col, pretty, data_did,
+                  "Heritage_Treated", "Post_Heritage")
+print(p_did)
+
+# -------- FE vs OLS Overlay Plot --------
+p_fe <- plot_fe_vs_ols(col, pretty, df)
+suppressWarnings(print(p_fe))
+
 } else {
-  message("No outcomes available for plotting – PNG panels skipped.")
+  message("Selected variable not found in variable_df.")
 }
-
-if (length(chosen_pretty) > 0){
-  fe_plots <- map2(chosen_df$col, chosen_df$pretty,
-                   ~ plot_fixed_effects(.x, .y, df))
-  
-  fe_panel <- gridExtra::grid.arrange(
-    grobs = fe_plots, ncol = 3,
-    top   = grid::textGrob("Two-Way Fixed Effects: Heritage Score vs. Outcomes",
-                           gp = gpar(fontsize = 15, fontface = "bold"))
-  )
-  
-  ggsave("panel_fixed_effects_heritage.png", fe_panel, width = 14, height = 9)
-  message("Fixed Effects panel saved: panel_fixed_effects_heritage.png")
-}
-
 ```
