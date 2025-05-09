@@ -5,89 +5,391 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-library(dplyr)
-library(ggplot2)
-library(visreg)
-library(sf)
-library(broom)
-library(rnaturalearth)
-library(rnaturalearthdata)
-library(plm)
-library(tidyr)
-library(readr)
-library(gridExtra)
-library(grid)
+pkgs <- c("tidyverse", "plm", "broom", "glue",
+          "gridExtra", "grid",
+          "sf", "visreg",
+          "rnaturalearth", "rnaturalearthdata")
+
+invisible(lapply(pkgs, \(p){
+  if (!requireNamespace(p, quietly = TRUE)) install.packages(p)
+  library(p, character.only = TRUE)
+}))
 ```
 
-## Load and Clean Data
+## Load & basic clean
+```{r data, echo=FALSE}
+static_cols <- c("ISO3", "Year")
 
-```{r data}
-data <- read.csv('merged_data.csv', stringsAsFactors = FALSE)
+data_raw <- readr::read_csv("merged_data.csv", show_col_types = FALSE)
 
-data <- data[!is.na(data$ISO3), ]
+df <- data_raw %>%
+  filter(!if_all(-all_of(static_cols), is.na)) %>%
+  filter(!is.na(Heritage_Score) | !is.na(fraser_Score),
+         Year >= 1995) %>%
+  filter(!is.na(ISO3) & !is.na(Year))        # ← NEW: ensures complete indexes
 
-# Remove rows with only ISO3 and Year
-cols_to_exclude <- c("ISO3", "Year")
-cols_to_check <- setdiff(names(data), cols_to_exclude)
-data <- data[!apply(data[, cols_to_check], 1, function(x) all(is.na(x))), ]
 
-# Filter for valid economic freedom scores and years
-data <- data %>%
-  filter(!(is.na(Heritage_Score) & is.na(fraser_Score))) %>%
-  filter(Year >= 1995)
+names(df) <- make.names(names(df))     # harmonise to “safe” names (dots)
 ```
 
 ## Rename Variables
-
-```{r rename}
-# Load variable labels
+```{r variable names}
 variable_labels <- c(
+  "Access.to.clean.fuels.and.technologies.for.cooking....of.population." =
+    "Clean cooking access",
+  "Account.ownership.at.a.financial.institution.or.with.a.mobile.money.service.provider..poorest.40.....of.population.ages.15.." =
+    "Account ownership (poorest 40%)",
+  "Annualized.average.growth.rate.in.per.capita.real.survey.mean.consumption.or.income..bottom.40..of.population...." =
+    "Income growth (bottom 40%)",
+  "Carbon.dioxide..CO2..emissions..total..excluding.LULUCF..Mt.CO2e." =
+    "Total CO₂ emissions",
+  "Carbon.dioxide..CO2..emissions.excluding.LULUCF.per.capita..t.CO2e.capita." =
+    "CO₂ emissions per capita",
+  "Children.in.employment..work.only....of.children.in.employment..ages.7.14." =
+    "Child labor (% children 7–14)",
+  "Consumer.price.index..2010...100." =
+    "Consumer Price Index (2010 = 100)",
+  "Coverage.of.social.insurance.programs....of.population." =
+    "Social insurance coverage",
+  "Coverage.of.social.insurance.programs.in.poorest.quintile....of.population." =
+    "Social insurance (poorest quintile)",
+  "Coverage.of.social.safety.net.programs....of.population." =
+    "Safety net coverage",
+  "Coverage.of.social.safety.net.programs.in.poorest.quintile....of.population." =
+    "Safety net (poorest quintile)",
+  "Coverage.of.unemployment.benefits.and.ALMP.in.poorest.quintile....of.population." =
+    "Unemployment benefits (poorest quintile)",
+  "Educational.attainment..at.least.completed.lower.secondary..population.25...total......cumulative." =
+    "Lower secondary education (% 25+)",
+  "Exports.of.goods.and.services..constant.2015.US.." =
+    "Exports (constant USD)",
+  "GDP..constant.2015.US.." = "GDP (constant USD)",
+  "GDP.growth..annual..."   = "GDP growth (%)",
   "GDP.per.capita..constant.2015.US.." = "GDP per capita (constant USD)",
-  "Gini.index" = "Gini index (inequality)"
-  # Additional mappings omitted for brevity...
+  "GDP.per.capita.growth..annual..."   = "GDP per capita growth (%)",
+  "GNI..constant.2015.US.."            = "GNI (constant USD)",
+  "GNI.growth..annual..."              = "GNI growth (%)",
+  "GNI.per.capita..constant.2015.US.." = "GNI per capita (constant USD)",
+  "GNI.per.capita.growth..annual..."   = "GNI per capita growth (%)",
+  "Gini.index"                         = "Gini index (inequality)",
+  "Income.share.held.by.highest.10."   = "Income share (top 10%)",
+  "Income.share.held.by.lowest.10."    = "Income share (bottom 10%)",
+  "Marine.protected.areas....of.territorial.waters." =
+    "Marine protected areas (%)",
+  "Poverty.gap.at..3.65.a.day..2017.PPP....." = "Poverty gap at $3.65/day",
+  "Poverty.gap.at..6.85.a.day..2017.PPP....." = "Poverty gap at $6.85/day",
+  "Poverty.headcount.ratio.at..3.65.a.day..2017.PPP.....of.population." =
+    "Poverty rate ($3.65/day)",
+  "Poverty.headcount.ratio.at..6.85.a.day..2017.PPP.....of.population." =
+    "Poverty rate ($6.85/day)",
+  "Poverty.headcount.ratio.at.national.poverty.lines....of.population." =
+    "Poverty rate (national line)",
+  "Poverty.headcount.ratio.at.societal.poverty.line....of.population." =
+    "Poverty rate (societal line)",
+  "Proportion.of.people.living.below.50.percent.of.median.income...." =
+    "Below 50% of median income",
+  "Proportion.of.population.pushed.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure...." =
+    "Pushed below $3.65 by health costs",
+  "Proportion.of.population.pushed.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.expenditure...." =
+    "Pushed below 60% median by health costs",
+  "Proportion.of.population.pushed.further.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure...." =
+    "Pushed further below $3.65 by health costs",
+  "Proportion.of.population.pushed.further.below.the.60..median.consumption.poverty.line.by.out.of.pocket.health.care.expenditure...." =
+    "Pushed further below 60% median by health costs",
+  "Proportion.of.population.spending.more.than.10..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure...." =
+    "Health spending >10% of income",
+  "Proportion.of.population.spending.more.than.25..of.household.consumption.or.income.on.out.of.pocket.health.care.expenditure...." =
+    "Health spending >25% of income",
+  "Prosperity.gap..average.shortfall.from.a.prosperity.standard.of..25.day." =
+    "Prosperity gap from $25/day",
+  "School.enrollment..primary....net." =
+    "Primary school enrollment (net)",
+  "Survey.mean.consumption.or.income.per.capita..total.population..2017.PPP...per.day." =
+    "Mean daily consumption/income (PPP)",
+  "Unemployment..total....of.total.labor.force...modeled.ILO.estimate." =
+    "Unemployment rate (ILO)"
 )
 
-# Safely rename
-valid_labels <- variable_labels[names(variable_labels) %in% colnames(data)]
-renaming_vector <- setNames(names(valid_labels), valid_labels)
-data <- data %>% rename(!!!renaming_vector)
 ```
 
-## Examine Missingness
-
-```{r missing}
-sapply(data, function(x) sum(is.na(x)))
+## Examine Variables
+```{r examine data, echo=FALSE}
+# Check total missing values per column
+sapply(df, function(x) sum(is.na(x)))
 ```
 
-## Simple Linear Regressions
+## Build Variable lookup
+```{r tibble}
+variable_df <- tibble(
+  raw      = names(variable_labels),
+  pretty   = unname(variable_labels),
+  safe_raw = make.names(names(variable_labels))
+) %>%
+  mutate(col = case_when(
+    pretty   %in% names(df) ~ pretty,
+    safe_raw %in% names(df) ~ safe_raw,
+    raw      %in% names(df) ~ raw,
+    TRUE                    ~ NA_character_
+  )) %>%
+  filter(!is.na(col)) %>%                                    # keep matches
+  mutate(non_na = map_int(col, ~ sum(!is.na(df[[.x]])))) %>% # rows w/ data?
+  filter(non_na > 1) %>%                                     # need >1 obs
+  select(-non_na)
 
-```{r regression}
-outcomes <- unname(valid_labels)
-results <- lapply(outcomes, function(var) {
-  form_heritage <- as.formula(paste0("`", var, "` ~ Heritage_Score"))
-  form_fraser <- as.formula(paste0("`", var, "` ~ fraser_Score"))
+if (nrow(variable_df) == 0)
+  stop("No outcome columns found in merged_data.csv after cleaning.")
+```
 
-  model_heritage <- lm(form_heritage, data = data)
-  model_fraser <- lm(form_fraser, data = data)
 
-  tidy_heritage <- broom::tidy(model_heritage)[2, ]
-  tidy_fraser <- broom::tidy(model_fraser)[2, ]
+## Helper Functions
+```{r helper}
+run_ols <- function(col, score, data){
+  lm(glue("`{col}` ~ {score}"), data = data) |>
+    tidy() |> slice(2) |> select(estimate, p.value, std.error)
+}
 
-  data.frame(
-    Outcome_Label = var,
-    Coef_Heritage = tidy_heritage$estimate,
-    P_Heritage = tidy_heritage$p.value,
-    R2_Heritage = summary(model_heritage)$r.squared,
-    Coef_Fraser = tidy_fraser$estimate,
-    P_Fraser = tidy_fraser$p.value,
-    R2_Fraser = summary(model_fraser)$r.squared
+run_fe <- function(col, score, data){
+  if (n_distinct(data[[col]], na.rm = TRUE) < 2)
+    return(tibble(estimate = NA, p.value = NA, std.error = NA))
+  plm(glue("`{col}` ~ {score}"), data = data,
+      index = c("ISO3","Year"), model = "within", effect = "twoways") |>
+    tidy() |> slice(1) |> select(estimate, p.value, std.error)
+}
+
+safe_ols <- purrr::possibly(run_ols,
+                            otherwise = tibble(estimate=NA,p.value=NA,std.error=NA))
+safe_fe  <- purrr::possibly(run_fe,
+                            otherwise = tibble(estimate=NA,p.value=NA,std.error=NA))
+
+reg_summary <- function(col, pretty, score, data){
+  bind_cols(
+    tibble(outcome = pretty, score = score),
+    safe_ols(col, score, data),
+    safe_fe(col, score, data) |> rename_with(~paste0("fe_", .x))
   )
-})
+}
+```
 
-regression_summary <- do.call(rbind, results) %>%
-  mutate(Min_P = pmin(P_Heritage, P_Fraser)) %>%
-  arrange(Min_P)
 
-print(regression_summary)
-write.csv(regression_summary, "regression_summary.csv", row.names = FALSE)
+## OLS and FE Regressions
+```{r regression}
+## ---------------- 4.  OLS + Two-way FE regressions ----------------------------
+scores <- c("Heritage_Score", "fraser_Score")
+
+reg_tbl <- map2_dfr(
+  variable_df$col, variable_df$pretty,
+  \(col, pretty) map_dfr(
+    scores, reg_summary, col = col, pretty = pretty, data = df
+  )
+)
+
+write_csv(reg_tbl, "regression_summary_clean.csv")
+message("Saved regression_summary_clean.csv")
+```
+
+## DiD Regression
+```{r DiD}
+# 5·1  Identify “big” year-to-year jumps  
+data_diff <- df %>%
+  distinct(ISO3, Year, .keep_all = TRUE) %>%        # drop duplicates
+  group_by(ISO3) %>%
+  arrange(Year, .by_group = TRUE) %>%
+  mutate(
+    Heritage_Diff = Heritage_Score - dplyr::lag(Heritage_Score),
+    Fraser_Diff   = fraser_Score   - dplyr::lag(fraser_Score),
+    
+    h_sd = sd(Heritage_Diff, na.rm = TRUE),
+    f_sd = sd(Fraser_Diff,   na.rm = TRUE),
+    
+    ## pick your shock rule (example: ≥ 2 SD)
+    Big_Heritage_Change = abs(Heritage_Diff) >= 2 * h_sd,
+    Big_Fraser_Change   = abs(Fraser_Diff)   >= 2 * f_sd,
+    
+    ## **create the trigger-year columns here**
+    Heritage_Trigger_Year = if_else(Big_Heritage_Change, Year, NA_real_),
+    Fraser_Trigger_Year   = if_else(Big_Fraser_Change,   Year, NA_real_)
+  ) %>%
+  ungroup()
+
+
+
+## 5·2  First trigger year (if any) per country ---------------------------------
+treatment_info <- data_diff %>%
+  group_by(ISO3) %>%
+  summarise(
+    Heritage_Treatment_Year = min(Heritage_Trigger_Year, na.rm = TRUE) |> na_if(Inf),
+    Fraser_Treatment_Year   = min(Fraser_Trigger_Year,   na.rm = TRUE) |> na_if(Inf),
+    .groups = "drop")
+
+## 5·3  Build flags  —  controls use a global cut-year so they have Pre + Post --
+global_cut_heritage <- quantile(df$Year, 0.60) |> as.integer()  # ≈ 2003-05
+global_cut_fraser   <- quantile(df$Year, 0.60) |> as.integer()
+
+
+data_did <- df %>%
+  left_join(treatment_info, by = "ISO3") %>%
+  mutate(
+    Heritage_Treated = as.numeric(!is.na(Heritage_Treatment_Year)),
+    Fraser_Treated   = as.numeric(!is.na(Fraser_Treatment_Year)),
+
+    Post_Heritage = as.numeric(ifelse(Heritage_Treated == 1,
+                                      Year > Heritage_Treatment_Year,
+                                      Year > global_cut_heritage)),
+    Post_Fraser   = as.numeric(ifelse(Fraser_Treated == 1,
+                                      Year > Fraser_Treatment_Year,
+                                      Year > global_cut_fraser))
+  )
+
+
+print(table(data_did$Heritage_Treated, data_did$Post_Heritage))  # quick sanity
+
+## 5·4  Safe DiD helper ---------------------------------------------------------
+run_did <- purrr::possibly(
+  \(col, treat, post, dat)
+  lm(glue::glue("`{col}` ~ {treat}*{post} + factor(Year)"), dat) |>
+    broom::tidy() |>
+    dplyr::filter(stringr::str_detect(term, ":")) |>
+    dplyr::select(term, estimate, p.value, std.error),
+  otherwise = tibble::tibble(term = NA, estimate = NA,
+                             p.value = NA, std.error = NA)
+)
+
+## 5·5  Build results table -----------------------------------------------------
+did_tbl <- purrr::map2_dfr(
+  variable_df$col, variable_df$pretty,
+  \(col, pretty) dplyr::bind_rows(
+    run_did(col, "Heritage_Treated", "Post_Heritage", data_did) |>
+      dplyr::mutate(outcome = pretty, score = "Heritage"),
+    run_did(col, "Fraser_Treated",   "Post_Fraser",   data_did) |>
+      dplyr::mutate(outcome = pretty, score = "Fraser")
+  )
+)
+
+readr::write_csv(did_tbl, "did_results_clean.csv")
+message("Saved did_results_clean.csv")
+```
+
+```{r plot helpers}
+plot_scatter <- function(col, pretty, data) {
+  data %>%
+    filter(!is.na(.data[[col]]), !is.infinite(.data[[col]]),
+           !is.na(Heritage_Score), !is.infinite(Heritage_Score)) %>%
+    ggplot(aes(x = Heritage_Score, y = .data[[col]])) +
+    geom_point(alpha = 0.4) +
+    geom_smooth(method = "lm", se = TRUE, colour = "steelblue", linewidth = 1) +
+    labs(title = pretty, x = "Heritage Score", y = NULL) +
+    theme_minimal(base_size = 13)
+}
+
+plot_fixed_effects <- function(col, pretty, data){
+  df_clean <- data %>%
+    filter(!is.na(.data[[col]]), !is.infinite(.data[[col]]),
+           !is.na(Heritage_Score), !is.infinite(Heritage_Score)) %>%
+    group_by(ISO3) %>%
+    mutate(
+      y_iso = mean(.data[[col]], na.rm = TRUE),
+      x_iso = mean(Heritage_Score, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    group_by(Year) %>%
+    mutate(
+      y_year = mean(.data[[col]], na.rm = TRUE),
+      x_year = mean(Heritage_Score, na.rm = TRUE)
+    ) %>%
+    ungroup() %>%
+    mutate(
+      y_demeaned = .data[[col]] - y_iso - y_year + mean(.data[[col]], na.rm = TRUE),
+      x_demeaned = Heritage_Score - x_iso - x_year + mean(Heritage_Score, na.rm = TRUE)
+    )
+
+  ggplot(df_clean, aes(x = x_demeaned, y = y_demeaned)) +
+    geom_point(alpha = 0.4) +
+    geom_smooth(method = "lm", se = TRUE, colour = "darkgreen", linewidth = 1) +
+    labs(title = paste(pretty, "(Fixed Effects)"),
+         x = "Heritage Score (demeaned)", y = NULL) +
+    theme_minimal(base_size = 13)
+}
+
+
+plot_did <- function(col, pretty, dat,
+                     treat_var = "Heritage_Treated",
+                     post_var  = "Post_Heritage") {
+  
+  dat %>% 
+    filter(!is.na(.data[[treat_var]]), !is.na(.data[[post_var]])) %>% 
+    mutate(
+      Group  = if_else(.data[[treat_var]] == 1, "Treatment", "Control"),
+      Period = factor(if_else(.data[[post_var]]  == 1, "Post", "Pre"),
+                      levels = c("Pre", "Post"))
+    ) %>% 
+    group_by(Group, Period) %>% 
+    summarise(y = mean(.data[[col]], na.rm = TRUE), .groups = "drop") %>% 
+    ggplot(aes(Period, y, colour = Group, group = Group)) +
+    geom_line(size = 1.2) +
+    geom_point(size = 3) +
+    scale_colour_manual(values = c(Control = "#377EB8",
+                                   Treatment = "#E41A1C")) +
+    labs(title = pretty, x = NULL, y = NULL, colour = NULL) +
+    theme_minimal(base_size = 12) +
+    theme(legend.position = "bottom")
+}
+
+```
+
+```{r Pannel Generation}
+preferred <- c(
+  "GDP per capita (constant USD)",
+  "Gini index (inequality)",
+  "Poverty rate ($6.85/day)",
+  "Clean cooking access",
+  "CO₂ emissions per capita",
+  "Health spending >10% of income"
+)
+
+chosen_pretty <- intersect(preferred, variable_df$pretty)
+if (length(chosen_pretty) == 0) chosen_pretty <- head(variable_df$pretty, 6)
+
+if (length(chosen_pretty) > 0){
+  chosen_df <- variable_df %>% filter(pretty %in% chosen_pretty)
+  
+  scatter_plots <- map2(chosen_df$col, chosen_df$pretty,
+                        ~ plot_scatter(.x, .y, df))
+  scatter_panel <- gridExtra::grid.arrange(
+    grobs = scatter_plots, ncol = 3,
+    top   = grid::textGrob("OLS: Heritage Score vs. Outcomes",
+                           gp=gpar(fontsize=15,fontface="bold")))
+  ggsave("panel_scatter_heritage.png", scatter_panel, width = 14, height = 9)
+  
+  did_plots <- map2(
+    chosen_df$col, chosen_df$pretty,
+    ~ plot_did(.x, .y, data_did, "Heritage_Treated", "Post_Heritage")
+  )
+  
+  
+  did_panel <- gridExtra::grid.arrange(
+    grobs = did_plots, ncol = 3,
+    top = grid::textGrob("Difference-in-Differences: Heritage Shocks",
+                         gp = gpar(fontsize = 15, fontface = "bold"))
+  )
+  ggsave("panel_did_heritage.png", did_panel, width = 14, height = 9)
+  
+  message("Panels saved: panel_scatter_heritage.png, panel_did_heritage.png")
+} else {
+  message("No outcomes available for plotting – PNG panels skipped.")
+}
+
+if (length(chosen_pretty) > 0){
+  fe_plots <- map2(chosen_df$col, chosen_df$pretty,
+                   ~ plot_fixed_effects(.x, .y, df))
+  
+  fe_panel <- gridExtra::grid.arrange(
+    grobs = fe_plots, ncol = 3,
+    top   = grid::textGrob("Two-Way Fixed Effects: Heritage Score vs. Outcomes",
+                           gp = gpar(fontsize = 15, fontface = "bold"))
+  )
+  
+  ggsave("panel_fixed_effects_heritage.png", fe_panel, width = 14, height = 9)
+  message("Fixed Effects panel saved: panel_fixed_effects_heritage.png")
+}
+
 ```
