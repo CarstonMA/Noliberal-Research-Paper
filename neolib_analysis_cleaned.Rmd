@@ -426,7 +426,7 @@ fe_fig <- (
   wrap_plots(fe_plots, ncol = 3) +
   plot_layout(guides = "collect") +
   plot_annotation(
-    title = "OLS vs Fixed‑Effects Regression Lines"
+    title = "OLS vs Fixed Effects Regression Lines"
   )
 ) & theme(
       legend.position = "bottom",
@@ -463,3 +463,5 @@ suppressWarnings(print(p_fe))
   message("Selected variable not found in variable_df.")
 }
 ```
+
+```{r appendix, ref.label = c("setup","data", "variable names","examine data", "tibble",  "helper",  "regression", "DiD", "plot helpers",  "Pannel Generation", "Single Plot"), echo = TRUE, eval = FALSE}

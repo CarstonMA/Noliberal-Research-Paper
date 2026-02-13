@@ -1,0 +1,31 @@
+OLS estimation
+Dep. Var.: Poverty.headcount.ratio.at.national.poverty.lines....of.population.
+Observations: 968
+Fixed-effects: ISO3: 117,  Year: 24
+Standard-errors: Clustered (ISO3) 
+                      Estimate Std. Error   t value   Pr(>|t|)    
+event_time_5_low     -7.894763   1.014894 -7.778907 3.3128e-12 ***
+event_time_10_low    -4.963864   0.592253 -8.381323 1.4063e-13 ***
+`event_time_-2_mid`   7.262916   5.447502  1.333256 1.8506e-01    
+event_time_1_mid     -0.100624   4.291223 -0.023449 9.8133e-01    
+event_time_3_mid     -8.917624   2.515492 -3.545081 5.6697e-04 ***
+event_time_4_mid      1.690416   6.715640  0.251713 8.0171e-01    
+event_time_5_mid     -1.522070   5.497712 -0.276855 7.8238e-01    
+event_time_6_mid     -2.068239   4.858168 -0.425724 6.7110e-01    
+event_time_7_mid      3.061718   4.593735  0.666499 5.0642e-01    
+event_time_8_mid      2.376901   2.868703  0.828563 4.0905e-01    
+event_time_9_mid      0.682882   2.493786  0.273833 7.8470e-01    
+event_time_10_mid     0.407423   2.222513  0.183316 8.5487e-01    
+event_time_2_high   -12.917151   2.383322 -5.419809 3.2871e-07 ***
+event_time_3_high    -9.411930   2.505942 -3.755845 2.7175e-04 ***
+event_time_4_high    -7.683433   1.885743 -4.074487 8.4721e-05 ***
+event_time_5_high    -7.981566   1.772105 -4.504002 1.5988e-05 ***
+event_time_6_high    -6.474469   1.447431 -4.473076 1.8092e-05 ***
+event_time_7_high    -4.172351   1.568777 -2.659620 8.9293e-03 ** 
+event_time_8_high    -4.811022   1.129319 -4.260108 4.1757e-05 ***
+event_time_9_high    -4.597494   1.231002 -3.734756 2.9288e-04 ***
+event_time_10_high   -3.414739   1.323677 -2.579738 1.1136e-02 *  
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+RMSE: 4.25737     Adj. R2: 0.895122
+                Within R2: 0.055221

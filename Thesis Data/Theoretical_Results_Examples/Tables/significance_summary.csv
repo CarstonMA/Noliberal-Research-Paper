@@ -1,0 +1,12 @@
+"Outcome","ATE","p_value","Significant_5pct","Significant_10pct","Pre_Trend_P_Value","Overall_Assessment"
+"log_GDP_per_capita",0.0473,0.226,"No","No",0.12,"Not significant - weak effect"
+"GDP growth (annual %)",0.7255,0.052,"No","Yes",0.18,"Marginally significant positive effect (p<0.10)"
+"GDP per capita growth (annual %)",0.3736,0.077,"No","Yes",0.15,"Marginally significant positive effect (p<0.10)"
+"GNI per capita (constant 2015 US$)",120.91,0.298,"No","No",0.14,"Not significant - wide CI includes 0"
+"GNI per capita growth (annual %)",0.5382,0.064,"No","Yes",0.16,"Marginally significant positive effect (p<0.10)"
+"Gini.index",0.9682,0.411,"No","No",0.11,"Not significant - inequality may increase"
+"Poverty headcount ratio at $3.65 a day (2017 PPP) (% of population)",-2.6545,0.054,"No","Yes",0.13,"Marginally significant poverty reduction (p<0.10)"
+"Poverty headcount ratio at $6.85 a day (2017 PPP) (% of population)",-2.0727,0.104,"No","No",0.17,"Not significant - but negative effect"
+"Income share held by highest 10%",0.2936,0.471,"No","No",0.19,"Not significant - inequality may increase"
+"Income share held by lowest 10%",-0.0700,0.273,"No","No",0.14,"Not significant - bottom share may decrease"
+

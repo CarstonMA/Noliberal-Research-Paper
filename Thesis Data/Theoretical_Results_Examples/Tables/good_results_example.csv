@@ -1,0 +1,7 @@
+"Outcome","ATE","SE","CI_Lower","CI_Upper","Significant","Pre_Trend_P_Value","Interpretation"
+"log GDP per capita",0.045,0.015,0.016,0.074,"Yes",0.45,"Increases GDP per capita"
+"GDP growth",1.2,0.3,0.61,1.79,"Yes",0.62,"Increases GDP growth"
+"Gini index",-0.8,0.25,-1.29,-0.31,"Yes",0.38,"Reduces inequality"
+"Poverty headcount ($3.65)",-2.5,0.4,-3.28,-1.72,"Yes",0.51,"Reduces poverty"
+"Income share (bottom 10%)",0.15,0.05,0.05,0.25,"Yes",0.43,"Increases bottom 10% share"
+

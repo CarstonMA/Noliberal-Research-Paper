@@ -1,0 +1,24 @@
+OLS estimation, Dep. Var.: GDP.per.capita.growth..annual...
+Observations: 13,883
+Fixed-effects: ISO3: 262,  Year: 63
+Standard-errors: Clustered (ISO3) 
+                Estimate Std. Error  t value Pr(>|t|) 
+`event_time_-5`  9373.87    9422.61 0.994827  0.32074 
+`event_time_-4`  9204.27    9252.05 0.994835  0.32074 
+`event_time_-3`  9208.48    9255.93 0.994874  0.32072 
+`event_time_-2`  9236.66    9284.36 0.994862  0.32072 
+event_time_0     9453.98    9505.19 0.994612  0.32085 
+event_time_1     9302.35    9351.25 0.994771  0.32077 
+event_time_2     9367.29    9415.99 0.994827  0.32074 
+event_time_3     9376.98    9425.24 0.994880  0.32072 
+event_time_4     9060.33    9105.39 0.995052  0.32063 
+event_time_5     9409.95    9459.81 0.994729  0.32079 
+event_time_6     9127.53    9176.50 0.994663  0.32082 
+event_time_7     9207.17    9254.49 0.994887  0.32071 
+event_time_8     9210.47    9258.81 0.994779  0.32076 
+event_time_9     9047.30    9096.46 0.994596  0.32085 
+event_time_10    9187.67    9237.02 0.994657  0.32082 
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+RMSE: 824,695.8     Adj. R2: -0.002118
+                  Within R2:  4.065e-6

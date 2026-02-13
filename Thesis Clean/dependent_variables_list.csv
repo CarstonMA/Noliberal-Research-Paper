@@ -1,0 +1,44 @@
+Variable,Category,Non_Missing,Total,Pct_Available,Countries,Years
+GDP per capita (constant 2015 US$),Economic Growth/Income,14008,17216,81.4,260,64
+GDP (constant 2015 US$),Economic Growth/Income,14003,17216,81.3,260,64
+GDP growth (annual %),Economic Growth/Income,13883,17216,80.6,262,63
+GDP per capita growth (annual %),Economic Growth/Income,13883,17216,80.6,262,63
+Carbon dioxide (CO2) emissions (total) excluding LULUCF (Mt CO2e),Environment,13554,17216,78.7,251,54
+Carbon dioxide (CO2) emissions excluding LULUCF per capita (t CO2e/capita),Environment,13554,17216,78.7,251,54
+Consumer price index (2010 = 100),Inflation,8904,17216,51.7,192,64
+Exports of goods and services (constant 2015 US$),Trade,8568,17216,49.8,230,64
+"Unemployment, total (% of total labor force) (modeled ILO estimate)",Labor Market,7751,17216,45,235,33
+GNI growth (annual %),Economic Growth/Income,6906,17216,40.1,198,63
+GNI per capita growth (annual %),Economic Growth/Income,6719,17216,39,200,63
+GNI (constant 2015 US$),Economic Growth/Income,6696,17216,38.9,249,64
+GNI per capita (constant 2015 US$),Economic Growth/Income,6696,17216,38.9,249,64
+"School enrollment, primary (% net)",Education,6203,17216,36,243,50
+Access to clean fuels and technologies for cooking (% of population),Other,5451,17216,31.7,237,23
+Poverty headcount ratio at $3.65 a day (2017 PPP) (% of population),Poverty,2611,17216,15.2,183,61
+Poverty headcount ratio at $6.85 a day (2017 PPP) (% of population),Poverty,2611,17216,15.2,183,61
+Prosperity gap (average shortfall from a prosperity standard of $25/day),Economic Growth/Income,2605,17216,15.1,183,61
+Poverty gap at $3.65 a day (2017 PPP) (%),Poverty,2599,17216,15.1,183,61
+Poverty gap at $6.85 a day (2017 PPP) (%),Poverty,2599,17216,15.1,183,61
+Poverty headcount ratio at societal poverty line (% of population),Poverty,2599,17216,15.1,183,61
+"Educational attainment, at least completed lower secondary, population 25+, total (%) (cumulative)",Education,2193,17216,12.7,204,53
+Gini index,Inequality,2111,17216,12.3,169,61
+Income share held by highest 10%,Economic Growth/Income,2110,17216,12.3,169,61
+Income share held by lowest 10%,Economic Growth/Income,2110,17216,12.3,169,61
+Proportion of people living below 50 percent of median income (%),Economic Growth/Income,2088,17216,12.1,169,61
+Marine protected areas (% of territorial waters),Other,1405,17216,8.2,210,7
+Proportion of population spending more than 10% of household consumption or income on out-of-pocket health care expenditure (%),Economic Growth/Income,1049,17216,6.1,175,36
+Proportion of population spending more than 25% of household consumption or income on out-of-pocket health care expenditure (%),Economic Growth/Income,1048,17216,6.1,174,36
+Poverty headcount ratio at national poverty lines (% of population),Poverty,1024,17216,5.9,158,24
+Proportion of population pushed below the 60% median consumption poverty line by out-of-pocket health expenditure (%),Economic Growth/Income,983,17216,5.7,166,36
+Proportion of population pushed further below the 60% median consumption poverty line by out-of-pocket health care expenditure (%),Economic Growth/Income,980,17216,5.7,166,36
+Proportion of population pushed below the $3.65 ($ 2017 PPP) poverty line by out-of-pocket health care expenditure (%),Poverty,926,17216,5.4,158,36
+Proportion of population pushed further below the $3.65 ($ 2017 PPP) poverty line by out-of-pocket health care expenditure (%),Poverty,923,17216,5.4,158,36
+"Account ownership at a financial institution or with a mobile-money-service provider, poorest 40% (% of population ages 15+)",Poverty,641,17216,3.7,182,5
+Coverage of social safety net programs in poorest quintile (% of population),Poverty,489,17216,2.8,117,21
+Coverage of social safety net programs (% of population),Social Protection,489,17216,2.8,117,21
+Coverage of social insurance programs in poorest quintile (% of population),Poverty,455,17216,2.6,116,22
+Coverage of social insurance programs (% of population),Social Protection,455,17216,2.6,116,22
+"Children in employment, work only (% of children in employment, ages 7-14)",Labor Market,282,17216,1.6,100,21
+"Survey mean consumption or income per capita, total population (2017 PPP $ per day)",Economic Growth/Income,250,17216,1.5,125,21
+Coverage of unemployment benefits and ALMP in poorest quintile (% of population),Poverty,230,17216,1.3,66,19
+"Annualized average growth rate in per capita real survey mean consumption or income, bottom 40% of population (%)",Economic Growth/Income,125,17216,0.7,125,14

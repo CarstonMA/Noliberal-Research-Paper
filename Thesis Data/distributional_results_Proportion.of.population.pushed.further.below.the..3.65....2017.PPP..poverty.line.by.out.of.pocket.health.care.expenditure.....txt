@@ -1,0 +1,25 @@
+OLS estimation
+Dep. Var.: Proportion.of.population.pushed.further.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure....
+Observations: 895
+Fixed-effects: ISO3: 136,  Year: 30
+Standard-errors: Clustered (ISO3) 
+                  Estimate Std. Error   t value  Pr(>|t|)    
+`event_time_-5` -16.949268    5.07057 -3.342676 0.0010739 ** 
+`event_time_-4`  -4.234572    3.04817 -1.389217 0.1670539    
+`event_time_-3`  -8.325896    9.37500 -0.888096 0.3760689    
+`event_time_-2`   1.257475    2.45388  0.512443 0.6091782    
+event_time_0     -3.293356    3.26469 -1.008781 0.3148842    
+event_time_1     -3.072950    2.83326 -1.084600 0.2800318    
+event_time_2     -7.159545    4.21796 -1.697394 0.0919264 .  
+event_time_3     -2.280848    2.07777 -1.097740 0.2742722    
+event_time_4     -2.627740    1.63030 -1.611815 0.1093377    
+event_time_5     -3.064642    1.59007 -1.927360 0.0560352 .  
+event_time_6     -0.615448    2.24556 -0.274073 0.7844473    
+event_time_7     -1.303350    1.82946 -0.712423 0.4774321    
+event_time_8      0.372286    1.54728  0.240607 0.8102251    
+event_time_9     -0.438080    1.20951 -0.362195 0.7177725    
+event_time_10    -0.699603    1.36219 -0.513587 0.6083805    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+RMSE: 6.06002     Adj. R2: 0.885544
+                Within R2: 0.017973

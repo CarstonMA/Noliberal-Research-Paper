@@ -1,0 +1,7 @@
+"Outcome","ATE","SE","t_statistic","p_value","Significance_Level","CI_Lower","CI_Upper","Pre_Trend_P_Value","Interpretation"
+"log_GDP_per_capita",0.0473,0.0391,1.210,0.226,"",-0.0293,0.1238,0.12,"Not significant - CI includes 0"
+"GDP growth (annual %)",0.7255,0.3740,1.940,0.052,"*",-0.0076,1.4586,0.18,"Marginally significant (p<0.10)"
+"GDP per capita growth (annual %)",0.3736,0.2112,1.769,0.077,"*",-0.0403,0.7876,0.15,"Marginally significant (p<0.10)"
+"GNI per capita (constant 2015 US$)",120.91,116.08,1.042,0.298,"",-106.60,348.42,0.14,"Not significant - CI includes 0"
+"GNI per capita growth (annual %)",0.5382,0.2911,1.849,0.064,"*",-0.0324,1.1088,0.16,"Marginally significant (p<0.10)"
+

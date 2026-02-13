@@ -1,0 +1,7 @@
+"Outcome","ATE","SE","t_statistic","p_value","Significance_Level","CI_Lower","CI_Upper","Pre_Trend_P_Value","Interpretation"
+"Gini.index",0.9682,1.1767,0.823,0.411,"",-1.3381,3.2744,0.11,"Not significant - CI includes 0"
+"Poverty headcount ratio at $3.65 a day (2017 PPP) (% of population)",-2.6545,1.3761,1.930,0.054,"*",-5.3517,0.0426,0.13,"Marginally significant (p<0.10)"
+"Poverty headcount ratio at $6.85 a day (2017 PPP) (% of population)",-2.0727,1.2764,1.624,0.104,"",-4.5744,0.4289,0.17,"Not significant - CI includes 0"
+"Income share held by highest 10%",0.2936,0.4074,0.721,0.471,"",-0.5048,1.0921,0.19,"Not significant - CI includes 0"
+"Income share held by lowest 10%",-0.0700,0.0638,1.097,0.273,"",-0.1951,0.0551,0.14,"Not significant - CI includes 0"
+

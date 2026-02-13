@@ -1,0 +1,37 @@
+OLS estimation
+Dep. Var.: Proportion.of.population.pushed.further.below.the..3.65....2017.PPP..poverty.line.by.out.of.pocket.health.care.expenditure....
+Observations: 890
+Fixed-effects: ISO3: 134,  Year: 30
+Standard-errors: Clustered (ISO3) 
+                      Estimate Std. Error   t value   Pr(>|t|)    
+event_time_5_low      9.010748   0.981245  9.182973 7.2096e-16 ***
+`event_time_-5_mid` -17.180590   5.156129 -3.332072 1.1164e-03 ** 
+`event_time_-4_mid`  -4.117825   3.113509 -1.322567 1.8825e-01    
+`event_time_-3_mid`  -7.938366   9.543823 -0.831780 4.0702e-01    
+`event_time_-2_mid`   1.618539   2.518310  0.642708 5.2152e-01    
+event_time_0_mid     -3.388773   3.328433 -1.018129 3.1047e-01    
+event_time_1_mid     -1.504548   2.649484 -0.567864 5.7108e-01    
+event_time_2_mid     -6.781931   4.697397 -1.443764 1.5116e-01    
+event_time_3_mid     -1.886448   2.067746 -0.912321 3.6325e-01    
+event_time_4_mid     -2.438197   1.576745 -1.546348 1.2440e-01    
+event_time_5_mid     -3.975607   1.497250 -2.655272 8.8926e-03 ** 
+event_time_6_mid     -0.584617   2.414171 -0.242161 8.0903e-01    
+event_time_7_mid     -0.801493   2.285549 -0.350679 7.2638e-01    
+event_time_8_mid      0.503328   1.706585  0.294933 7.6850e-01    
+event_time_9_mid     -0.244598   1.249831 -0.195704 8.4514e-01    
+event_time_10_mid     0.436088   1.550175  0.281315 7.7891e-01    
+event_time_1_high    -9.350360   2.809459 -3.328171 1.1309e-03 ** 
+event_time_2_high    -7.872328   2.455656 -3.205795 1.6868e-03 ** 
+event_time_3_high    -4.633448   2.286972 -2.026019 4.4763e-02 *  
+event_time_4_high    -3.452065   2.362596 -1.461132 1.4634e-01    
+event_time_5_high    -2.365762   2.026049 -1.167672 2.4503e-01    
+event_time_6_high    -1.424949   1.669328 -0.853606 3.9486e-01    
+event_time_7_high    -2.236945   1.757834 -1.272558 2.0540e-01    
+event_time_8_high     0.075793   1.169266  0.064821 9.4841e-01    
+event_time_9_high    -1.658088   1.158235 -1.431564 1.5461e-01    
+event_time_10_high   -1.728369   1.250698 -1.381924 1.6931e-01    
+... 1 variable was removed because of collinearity (event_time_10_low)
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+RMSE: 6.01641     Adj. R2: 0.885844
+                Within R2: 0.021947

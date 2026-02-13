@@ -1,0 +1,21 @@
+OLS estimation
+Dep. Var.: Poverty.headcount.ratio.at.national.poverty.lines....of.population.
+Observations: 984
+Fixed-effects: ISO3: 118,  Year: 24
+Standard-errors: Clustered (ISO3) 
+                  Estimate Std. Error   t value   Pr(>|t|)    
+`event_time_-2`   5.387914    4.37172  1.232447 2.2025e-01    
+event_time_1     -0.757954    3.78999 -0.199989 8.4184e-01    
+event_time_2    -12.114477    2.37871 -5.092880 1.3652e-06 ***
+event_time_3     -9.287400    2.76488 -3.359056 1.0563e-03 ** 
+event_time_4     -3.303854    4.34847 -0.759775 4.4892e-01    
+event_time_5     -4.259690    3.49333 -1.219376 2.2515e-01    
+event_time_6     -3.711652    2.93978 -1.262560 2.0926e-01    
+event_time_7     -1.078564    2.50238 -0.431015 6.6725e-01    
+event_time_8     -1.666878    1.91421 -0.870790 3.8565e-01    
+event_time_9     -2.223714    1.63692 -1.358471 1.7693e-01    
+event_time_10    -1.135231    1.56992 -0.723113 4.7105e-01    
+---
+Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+RMSE: 4.38613     Adj. R2: 0.890012
+                Within R2: 0.027614
