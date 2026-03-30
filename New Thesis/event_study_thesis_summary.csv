@@ -1,0 +1,5 @@
+block,outcome,pre_trend_wald_p,n_obs
+Analysis_A_Macro,NY.GDP.MKTP.KD.ZG,NA,4945
+Analysis_A_Macro,SL.EMP.VULN.ZS,NA,4836
+Analysis_B_Micro,SI.POV.DDAY,NA,2245
+Analysis_B_Micro,SI.DST.FRST.20,NA,2245
