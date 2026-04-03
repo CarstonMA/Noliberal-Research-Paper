@@ -10,13 +10,20 @@ if (!requireNamespace("zoo", quietly = TRUE)) {
 
 library(tidyverse)
 
-proj_root <- if (dir.exists("data/raw")) {
-  getwd()
-} else if (dir.exists("../data/raw")) {
-  normalizePath("..")
-} else {
-  getwd()
+for (.p in c(
+  file.path(getwd(), "R", "proj_paths.R"),
+  file.path(dirname(getwd()), "R", "proj_paths.R"),
+  file.path(dirname(dirname(getwd())), "R", "proj_paths.R")
+)) {
+  if (file.exists(.p)) {
+    source(.p, local = FALSE)
+    break
+  }
 }
+if (!exists("find_proj_root", mode = "function")) {
+  stop("Cannot find R/proj_paths.R")
+}
+proj_root <- find_proj_root()
 path_out <- file.path(proj_root, "data", "wdi_clean.csv")
 
 # Years: align with policy merge (merge_full_data.R uses 1995–2022). Pulling 1995–latest

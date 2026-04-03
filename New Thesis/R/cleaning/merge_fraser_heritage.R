@@ -5,13 +5,20 @@
 library(tidyverse)
 if (!requireNamespace("countrycode", quietly = TRUE)) install.packages("countrycode")
 
-proj_root <- if (dir.exists("data/raw")) {
-  getwd()
-} else if (dir.exists("../data/raw")) {
-  normalizePath("..")
-} else {
-  getwd()
+for (.p in c(
+  file.path(getwd(), "R", "proj_paths.R"),
+  file.path(dirname(getwd()), "R", "proj_paths.R"),
+  file.path(dirname(dirname(getwd())), "R", "proj_paths.R")
+)) {
+  if (file.exists(.p)) {
+    source(.p, local = FALSE)
+    break
+  }
 }
+if (!exists("find_proj_root", mode = "function")) {
+  stop("Cannot find R/proj_paths.R")
+}
+proj_root <- find_proj_root()
 path_fraser <- file.path(proj_root, "data", "raw", "Fraser Time Series.csv")
 path_heritage <- file.path(proj_root, "data", "raw", "Heritage.csv")
 path_out <- file.path(proj_root, "data", "merged_fraser_heritage.csv")
