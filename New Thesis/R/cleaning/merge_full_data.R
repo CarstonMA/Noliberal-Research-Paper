@@ -81,14 +81,57 @@ if (!is.null(gdp_pc_col) && gdp_pc_col %in% names(merged)) {
     mutate(log_GDP_per_capita = NA_real_, GDP_per_capita_growth = NA_real_)
 }
 
-# 10. Relocate key columns
-merged <- merged %>%
-  relocate(ISO3, Country, Year, fraser_Summary, heritage_Overall)
+# 10. Time-invariant binary splits (baseline cross section; use AT MOST ONE for sub-samples)
+#     Literature alignment: "high voice" ≈ stronger democratic institutions (WGI);
+#     "high GDP" ≈ richer at baseline (development level). Median splits at first
+#     observed year in 1995–2000 per country (avoids missing 1995 only).
+#     Re-run clean_wdi.R first so VA.EST is present in wdi_clean.csv.
+va_col <- names(merged)[names(merged) %in% c("VA.EST", "VA_EST")][1]
+gdp_for_split <- names(merged)[grepl("^NY\\.GDP\\.PCAP\\.PP", names(merged))][1]
 
-# 11. Save
+if (!is.na(gdp_for_split)) {
+  ref_gdp <- merged %>%
+    filter(Year >= 1995L, Year <= 2000L, !is.na(.data[[gdp_for_split]])) %>%
+    group_by(ISO3) %>%
+    slice_min(Year, n = 1L, with_ties = FALSE) %>%
+    ungroup() %>%
+    transmute(ISO3, gdp_baseline = .data[[gdp_for_split]])
+  med_g <- stats::median(ref_gdp$gdp_baseline, na.rm = TRUE)
+  ref_gdp <- ref_gdp %>%
+    mutate(high_gdp_pc_ppp_baseline = as.integer(gdp_baseline > med_g))
+  merged <- merged %>% left_join(ref_gdp %>% select(ISO3, high_gdp_pc_ppp_baseline), by = "ISO3")
+} else {
+  merged$high_gdp_pc_ppp_baseline <- NA_integer_
+}
+
+if (!is.na(va_col) && va_col %in% names(merged)) {
+  ref_va <- merged %>%
+    filter(Year >= 1995L, Year <= 2000L, !is.na(.data[[va_col]])) %>%
+    group_by(ISO3) %>%
+    slice_min(Year, n = 1L, with_ties = FALSE) %>%
+    ungroup() %>%
+    transmute(ISO3, va_baseline = .data[[va_col]])
+  med_v <- stats::median(ref_va$va_baseline, na.rm = TRUE)
+  ref_va <- ref_va %>%
+    mutate(high_voice_accountability_baseline = as.integer(va_baseline > med_v))
+  merged <- merged %>% left_join(ref_va %>% select(ISO3, high_voice_accountability_baseline), by = "ISO3")
+} else {
+  merged$high_voice_accountability_baseline <- NA_integer_
+  cat("Note: VA.EST not in panel — run R/cleaning/clean_wdi.R to add WGI Voice & Accountability.\n")
+}
+
+# 11. Relocate key columns
+merged <- merged %>%
+  relocate(
+    ISO3, Country, Year,
+    any_of(c("high_gdp_pc_ppp_baseline", "high_voice_accountability_baseline")),
+    fraser_Summary, heritage_Overall
+  )
+
+# 12. Save
 write_csv(merged, path_out, na = "")
 
-# 12. Summary
+# 13. Summary
 cat("\n=== MERGE SUMMARY ===\n")
 cat("Rows:", nrow(merged), "\n")
 cat("Years:", min(merged$Year, na.rm = TRUE), "to", max(merged$Year, na.rm = TRUE), "\n")
@@ -101,6 +144,22 @@ if (exists("gdp_pc_col") && gdp_pc_col %in% names(merged)) {
 gini_col <- names(merged)[grepl("Gini|GINI", names(merged))][1]
 if (!is.na(gini_col)) {
   cat("Non-missing", gini_col, ":", sum(!is.na(merged[[gini_col]])), "\n")
+}
+if ("high_gdp_pc_ppp_baseline" %in% names(merged)) {
+  cat(
+    "Binary high_gdp_pc_ppp_baseline (1=above median baseline GDP pc PPP):",
+    " n1=", sum(merged$high_gdp_pc_ppp_baseline == 1L, na.rm = TRUE),
+    " n0=", sum(merged$high_gdp_pc_ppp_baseline == 0L, na.rm = TRUE),
+    " NA=", sum(is.na(merged$high_gdp_pc_ppp_baseline)), "\n"
+  )
+}
+if ("high_voice_accountability_baseline" %in% names(merged)) {
+  cat(
+    "Binary high_voice_accountability_baseline (1=above median WGI Voice):",
+    " n1=", sum(merged$high_voice_accountability_baseline == 1L, na.rm = TRUE),
+    " n0=", sum(merged$high_voice_accountability_baseline == 0L, na.rm = TRUE),
+    " NA=", sum(is.na(merged$high_voice_accountability_baseline)), "\n"
+  )
 }
 cat("Correlation fraser_Summary vs heritage_Overall:",
     round(cor(merged$fraser_Summary, merged$heritage_Overall, use = "pairwise.complete.obs"), 3), "\n")

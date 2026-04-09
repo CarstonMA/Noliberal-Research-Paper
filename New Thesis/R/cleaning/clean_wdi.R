@@ -53,9 +53,11 @@ iso3_members <- WDI::WDI_data$country %>%
   unique()
 
 # Indicators used downstream (GDP, poverty/inequality, vulnerable employment)
+# VA.EST = WGI Voice & Accountability (common proxy for democratic voice; not Polity)
 wdi_indicators <- c(
   "NY.GDP.PCAP.PP.KD",  # GDP per capita
   "NY.GDP.MKTP.KD.ZG",  # GDP growth %
+  "VA.EST",              # Voice and Accountability (Worldwide Governance Indicators)
   "SI.POV.DDAY",        # Extreme poverty $2.15/day
   "SI.POV.LMIC",        # Lower-mid poverty $3.65/day
   "SI.POV.UMIC",        # Upper-mid poverty $8.30/day

@@ -148,6 +148,27 @@ run_twfe <- function(data, outcome, comp_col) {
   )
 }
 
+# did::att_gt requires numeric idname (character ISO3 errors in pre_process_did).
+att_gt_panel <- function(d, outcome, control_group = "nevertreated") {
+  d <- as.data.frame(d)
+  d$unit_id <- as.integer(factor(d$ISO3, levels = sort(unique(as.character(d$ISO3)))))
+  att_gt(
+    yname = outcome,
+    tname = "Year",
+    idname = "unit_id",
+    gname = "first_treat",
+    xformla = ~1,
+    data = d,
+    control_group = control_group,
+    est_method = "dr",
+    allow_unbalanced_panel = TRUE,
+    clustervars = "unit_id",
+    bstrap = TRUE,
+    biters = bootstrap_iters,
+    print_details = FALSE
+  )
+}
+
 # --- Level 3: CS (did) ---
 run_cs <- function(data, outcome) {
   d <- data %>%
@@ -157,24 +178,20 @@ run_cs <- function(data, outcome) {
   if (length(unique(d$first_treat[d$first_treat > 0])) < 1L) return(NULL)
   tryCatch(
     {
-      att <- att_gt(
-        yname = outcome,
-        tname = "Year",
-        idname = "ISO3",
-        gname = "first_treat",
-        xformla = ~1,
-        data = d,
-        control_group = "never_treated",
-        est_method = "dr",
-        clustervars = "ISO3",
-        bstrap = TRUE,
-        biters = bootstrap_iters,
-        print_details = FALSE
-      )
-      agg <- aggte(att, type = "simple")
+      att <- att_gt_panel(d, outcome, control_group = "nevertreated")
+      agg <- aggte(att, type = "simple", na.rm = TRUE)
       list(att = att, agg = agg)
     },
-    error = function(e) NULL
+    error = function(e) {
+      tryCatch(
+        {
+          att <- att_gt_panel(d, outcome, control_group = "notyettreated")
+          agg <- aggte(att, type = "simple", na.rm = TRUE)
+          list(att = att, agg = agg)
+        },
+        error = function(e2) NULL
+      )
+    }
   )
 }
 
@@ -187,24 +204,20 @@ run_att_gt_dynamic <- function(data, outcome) {
   if (length(unique(d$first_treat[d$first_treat > 0])) < 1L) return(NULL)
   tryCatch(
     {
-      att <- att_gt(
-        yname = outcome,
-        tname = "Year",
-        idname = "ISO3",
-        gname = "first_treat",
-        xformla = ~1,
-        data = d,
-        control_group = "never_treated",
-        est_method = "dr",
-        clustervars = "ISO3",
-        bstrap = TRUE,
-        biters = bootstrap_iters,
-        print_details = FALSE
-      )
-      agg_dyn <- aggte(att, type = "dynamic")
+      att <- att_gt_panel(d, outcome, control_group = "nevertreated")
+      agg_dyn <- aggte(att, type = "dynamic", na.rm = TRUE)
       list(att = att, agg_dynamic = agg_dyn)
     },
-    error = function(e) NULL
+    error = function(e) {
+      tryCatch(
+        {
+          att <- att_gt_panel(d, outcome, control_group = "notyettreated")
+          agg_dyn <- aggte(att, type = "dynamic", na.rm = TRUE)
+          list(att = att, agg_dynamic = agg_dyn)
+        },
+        error = function(e2) NULL
+      )
+    }
   )
 }
 
