@@ -7,7 +7,7 @@
 # Shock: first year in which YoY change in component > sd_mult * SD(Δ) over the full panel.
 #        first_treat = 0 if never exceeds threshold (never-treated).
 # Components: 17 sub-indices (Fraser without Summary; Heritage without Overall).
-# Outcomes (4): GDP per capita growth, Gini, income share bottom 20%, poverty LMIC ($3.65 line).
+# Outcomes (4): GDP per capita growth; SWIID Gini; WID bottom-50% income share; WDI under-5 mortality.
 #
 # Requires: tidyverse, fixest, did.
 # Run from the thesis folder (New Thesis):  Rscript R/analysis_methodology.R
@@ -86,15 +86,15 @@ resolve_outcome <- function(d) {
   tibble(
     label = c(
       "GDP_per_capita_growth",
-      "Gini_index",
-      "Income_share_bottom20",
-      "Poverty_headcount_LMIC_3.65"
+      "Gini_SWIID",
+      "Income_share_bottom50_WID",
+      "Under5_mortality_rate"
     ),
     col = c(
       names(d)[names(d) == "GDP_per_capita_growth"][1],
-      names(d)[grepl("^SI\\.POV\\.GINI$|^Gini\\.index", names(d))][1],
-      names(d)[grepl("^SI\\.DST\\.FRST\\.20$|^Income\\.share.*lowest", names(d))][1],
-      names(d)[grepl("^SI\\.POV\\.LMIC$", names(d))][1]
+      names(d)[names(d) == "Gini_SWIID"][1],
+      names(d)[names(d) == "Income_share_bottom50_WID"][1],
+      names(d)[names(d) == "Under5_mortality_rate"][1]
     )
   ) %>% filter(!is.na(col))
 }
@@ -103,6 +103,16 @@ outcomes_tbl <- resolve_outcome(df)
 outcome_cols <- outcomes_tbl$col
 names(outcome_cols) <- outcomes_tbl$label
 cat("Outcomes:", paste(names(outcome_cols), "=", outcome_cols, collapse = "; "), "\n")
+expected <- c("GDP_per_capita_growth", "Gini_SWIID", "Income_share_bottom50_WID", "Under5_mortality_rate")
+missing_labs <- setdiff(expected, names(outcome_cols))
+if (length(missing_labs) > 0L) {
+  warning(
+    "Outcome column(s) missing from merged_full_data.csv — re-run R/cleaning/clean_wdi.R, ",
+    "then merge_full_data.R (and add data/raw/swiid_summary.csv + WID via import_wid.R). Missing: ",
+    paste(missing_labs, collapse = ", "),
+    call. = FALSE
+  )
+}
 
 policy_components <- intersect(policy_components, names(df))
 if (length(policy_components) != 17L) {
@@ -433,7 +443,7 @@ if (!is.na(second_name) && !is.na(best_name) && second_name != best_name) {
 }
 
 # --- 2) Distributional outcomes: failures + survivor table ---
-dist_outcomes <- c("Gini_index", "Poverty_headcount_LMIC_3.65")
+dist_outcomes <- c("Gini_SWIID", "Under5_mortality_rate")
 tbl_dist <- tbl_cs %>% filter(outcome %in% dist_outcomes)
 
 for (ol in dist_outcomes) {

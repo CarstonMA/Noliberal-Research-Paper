@@ -1,5 +1,6 @@
 # Merge WDI economic outcomes with Fraser/Heritage policy indices
 # Input:  data/wdi_clean.csv, data/merged_fraser_heritage.csv
+# Optional: data/swiid_clean.csv (SWIID Gini), data/wid_clean.csv (WID bottom-50% share)
 # Output: data/merged_full_data.csv
 # Creates growth variables and harmonized column names for analysis
 
@@ -22,11 +23,59 @@ proj_root <- find_proj_root()
 path_wdi <- file.path(proj_root, "data", "wdi_clean.csv")
 path_policy <- file.path(proj_root, "data", "merged_fraser_heritage.csv")
 path_out <- file.path(proj_root, "data", "merged_full_data.csv")
+path_swiid_clean <- file.path(proj_root, "data", "swiid_clean.csv")
+path_wid_clean <- file.path(proj_root, "data", "wid_clean.csv")
+path_swiid_raw_nested <- file.path(proj_root, "data", "raw", "swiid9_92", "swiid9_92", "swiid9_92_summary.csv")
+path_swiid_raw_flat <- file.path(proj_root, "data", "raw", "swiid_summary.csv")
+
+# 0. Build SWIID / WID extracts if needed (see R/cleaning/import_swiid.R, import_wid.R)
+if (!file.exists(path_swiid_clean) && (file.exists(path_swiid_raw_nested) || file.exists(path_swiid_raw_flat))) {
+  sw_err <- tryCatch(
+    {
+      source(file.path(proj_root, "R", "cleaning", "import_swiid.R"), local = FALSE)
+      NULL
+    },
+    error = function(e) e
+  )
+  if (!is.null(sw_err)) {
+    warning("SWIID import failed: ", conditionMessage(sw_err))
+  }
+}
+if (!file.exists(path_wid_clean)) {
+  wid_err <- tryCatch(
+    {
+      source(file.path(proj_root, "R", "cleaning", "import_wid.R"), local = FALSE)
+      NULL
+    },
+    error = function(e) e
+  )
+  if (!is.null(wid_err)) {
+    warning(
+      "WID import failed (offline or API error). Add data/wid_clean.csv or data/raw/wid_bottom50_ptinc.csv — ",
+      conditionMessage(wid_err)
+    )
+  }
+}
+if (!file.exists(path_swiid_clean)) {
+  warning(
+    "No SWIID panel — add raw summary under data/raw/ (see import_swiid.R) or run import_swiid.R. ",
+    "Gini will be missing."
+  )
+}
+if (!file.exists(path_wid_clean)) {
+  warning(
+    "No data/wid_clean.csv — WID bottom-50% share will be missing. Run R/cleaning/import_wid.R with network or add data/raw/wid_bottom50_ptinc.csv."
+  )
+}
 
 # 1. Load data
 cat("Loading data...\n")
 wdi <- read_csv(path_wdi, show_col_types = FALSE)
 policy <- read_csv(path_policy, show_col_types = FALSE)
+
+if (!"SH.DTH.MORT" %in% names(wdi)) {
+  warning("wdi_clean.csv is missing SH.DTH.MORT — re-run R/cleaning/clean_wdi.R for under-5 mortality.")
+}
 
 # 2. Harmonize WDI: ensure Year is integer
 wdi <- wdi %>%
@@ -50,6 +99,20 @@ merged <- inner_join(
   relationship = "one-to-one"
 )
 
+# 5b. SWIID (Gini) and WID (bottom-50% pre-tax national income share)
+if (file.exists(path_swiid_clean)) {
+  swiid <- read_csv(path_swiid_clean, show_col_types = FALSE) %>%
+    mutate(Year = as.integer(Year))
+  merged <- merged %>% left_join(swiid, by = c("ISO3", "Year"))
+  cat("Joined SWIID (Gini disposable income).\n")
+}
+if (file.exists(path_wid_clean)) {
+  wid <- read_csv(path_wid_clean, show_col_types = FALSE) %>%
+    mutate(Year = as.integer(Year))
+  merged <- merged %>% left_join(wid, by = c("ISO3", "Year"))
+  cat("Joined WID (bottom 50% income share, pre-tax national income).\n")
+}
+
 # 6. Harmonize country name (prefer policy's Country)
 merged <- merged %>%
   mutate(Country = coalesce(Country, `Country Name`)) %>%
@@ -57,6 +120,20 @@ merged <- merged %>%
 
 # 7. Safe column names for R (dots for spaces, etc.)
 names(merged) <- make.names(names(merged), unique = TRUE)
+
+# 7b. Canonical outcome names for analysis_methodology.R (single place to match columns)
+u5_src <- names(merged)[grepl("^SH\\.DTH\\.MORT$", names(merged))][1]
+if (!is.na(u5_src) && u5_src %in% names(merged)) {
+  merged$Under5_mortality_rate <- merged[[u5_src]]
+}
+sw_src <- names(merged)[grepl("^SWIID_gini_disp$", names(merged))][1]
+if (!is.na(sw_src) && sw_src %in% names(merged)) {
+  merged$Gini_SWIID <- merged[[sw_src]]
+}
+wid_src <- names(merged)[grepl("^WID_income_share_bottom50$", names(merged))][1]
+if (!is.na(wid_src) && wid_src %in% names(merged)) {
+  merged$Income_share_bottom50_WID <- merged[[wid_src]]
+}
 
 # 8. Find GDP per capita column (PPP constant 2021)
 gdp_pc_col <- names(merged)[grepl("GDP.*capita.*PPP|NY.GDP.PCAP.PP", names(merged), ignore.case = TRUE)][1]
@@ -141,9 +218,17 @@ cat("Non-missing heritage_Overall:", sum(!is.na(merged$heritage_Overall)), "\n")
 if (exists("gdp_pc_col") && gdp_pc_col %in% names(merged)) {
   cat("Non-missing", gdp_pc_col, ":", sum(!is.na(merged[[gdp_pc_col]])), "\n")
 }
-gini_col <- names(merged)[grepl("Gini|GINI", names(merged))][1]
+gini_col <- names(merged)[grepl("SWIID_gini|Gini", names(merged), ignore.case = TRUE)][1]
 if (!is.na(gini_col)) {
   cat("Non-missing", gini_col, ":", sum(!is.na(merged[[gini_col]])), "\n")
+}
+wid_col <- names(merged)[grepl("WID_income_share", names(merged))][1]
+if (!is.na(wid_col)) {
+  cat("Non-missing", wid_col, ":", sum(!is.na(merged[[wid_col]])), "\n")
+}
+u5_col <- names(merged)[grepl("^SH\\.DTH\\.MORT$", names(merged))][1]
+if (!is.na(u5_col)) {
+  cat("Non-missing", u5_col, "(under-5 mortality):", sum(!is.na(merged[[u5_col]])), "\n")
 }
 if ("high_gdp_pc_ppp_baseline" %in% names(merged)) {
   cat(

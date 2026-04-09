@@ -52,31 +52,27 @@ iso3_members <- WDI::WDI_data$country %>%
   pull(iso3c) %>%
   unique()
 
-# Indicators used downstream (GDP, poverty/inequality, vulnerable employment)
+# Indicators used downstream (GDP, deprivation proxy, vulnerable employment).
+# Gini / bottom-income-share: merged from SWIID + WID in merge_full_data.R (not WDI).
 # VA.EST = WGI Voice & Accountability (common proxy for democratic voice; not Polity)
 wdi_indicators <- c(
   "NY.GDP.PCAP.PP.KD",  # GDP per capita
   "NY.GDP.MKTP.KD.ZG",  # GDP growth %
   "VA.EST",              # Voice and Accountability (Worldwide Governance Indicators)
   "SI.POV.DDAY",        # Extreme poverty $2.15/day
-  "SI.POV.LMIC",        # Lower-mid poverty $3.65/day
   "SI.POV.UMIC",        # Upper-mid poverty $8.30/day
   "SI.POV.UMIC.GP",     # Poverty gap at $8.30
-  "SI.POV.GINI",        # Gini index
-  "SI.DST.FRST.20",     # Income share lowest 20%
+  "SH.DTH.MORT",        # Under-5 mortality rate (per 1,000 live births) — deprivation proxy
   "SL.EMP.VULN.ZS"      # Vulnerable employment
 )
 
-# Survey-based poverty / inequality only: linear interpolation inside gaps of at most
+# Survey-based poverty only: linear interpolation inside gaps of at most
 # `interp_max_gap` consecutive missing years, between observed points only (no extrapolation).
-# GDP and employment are left as-is (not imputed from other variables).
+# GDP, U5MR, and employment are left as-is (not imputed from other variables).
 interp_survey_vars <- c(
   "SI.POV.DDAY",
-  "SI.POV.LMIC",
   "SI.POV.UMIC",
-  "SI.POV.UMIC.GP",
-  "SI.POV.GINI",
-  "SI.DST.FRST.20"
+  "SI.POV.UMIC.GP"
 )
 interp_max_gap <- 2L
 
