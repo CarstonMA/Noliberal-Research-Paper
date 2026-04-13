@@ -2,6 +2,8 @@
 # Preferred: wid::download_wid() from CRAN (requires network).
 # Fallback: place a CSV at data/raw/wid_bottom50_ptinc.csv with columns ISO3, Year, value
 #           where value is the WID share as a fraction 0–1 (same as API).
+# Panel CS needs many country-years: analysis_methodology.R requires >=100 non-missing outcome
+# rows; a single-country stub (e.g. USA only) will merge but all WID CS cells stay NA.
 
 req <- function(p) {
   if (!requireNamespace(p, quietly = TRUE)) {
@@ -54,49 +56,107 @@ read_fallback_csv <- function() {
     filter(!is.na(ISO3), nchar(ISO3) == 3L, !is.na(Year))
 }
 
+# WID area codes: usually ISO2 ("US"); sometimes ISO3-like 3 letters — map to ISO3
+iso3_from_wid_area <- function(x) {
+  x <- trimws(as.character(x))
+  out <- rep(NA_character_, length(x))
+  idx3 <- !is.na(x) & nchar(x) == 3L & grepl("^[A-Za-z]{3}$", x)
+  out[idx3] <- toupper(x[idx3])
+  idx2 <- is.na(out) & !is.na(x) & nchar(x) == 2L
+  if (any(idx2)) {
+    out[idx2] <- countrycode::countrycode(x[idx2], origin = "iso2c", destination = "iso3c")
+  }
+  out
+}
+
 download_wid_bottom50 <- function() {
   if (!requireNamespace("wid", quietly = TRUE)) {
     install.packages("wid", repos = "https://cloud.r-project.org")
   }
   path_wdi <- file.path(proj_root, "data", "wdi_clean.csv")
-  # Use areas = "all" for one bulk API pull. Passing a long ISO2 vector makes wid
-  # hit the API per area and can take a very long time; we filter to WDI countries after.
   iso3_keep <- NULL
+  iso2_list <- NULL
   if (file.exists(path_wdi)) {
-    iso3_keep <- unique(read_csv(path_wdi, show_col_types = FALSE)$ISO3)
-    iso3_keep <- as.character(iso3_keep[!is.na(iso3_keep)])
+    w <- read_csv(path_wdi, show_col_types = FALSE)
+    iso3_keep <- unique(as.character(w$ISO3[!is.na(w$ISO3)]))
+    iso2_list <- unique(countrycode::countrycode(iso3_keep, origin = "iso3c", destination = "iso2c"))
+    iso2_list <- sort(iso2_list[!is.na(iso2_list) & nchar(iso2_list) == 2L])
   }
-  d <- tryCatch(
-    wid::download_wid(
-      indicators = "sptinc",
-      areas = "all",
-      years = year_min:year_max,
-      perc = "p0p50",
-      ages = 999,
-      pop = "i",
-      include_extrapolations = TRUE,
-      verbose = TRUE
-    ),
-    error = function(e) {
-      warning("WID API download failed: ", conditionMessage(e))
-      NULL
+  # pop = "j" (equal-split adults): WID publishes sptinc bottom-50 for many countries.
+  # pop = "i" (individuals) largely returns US-only for this series — do not use.
+  wid_batch_size <- 25L
+  parts <- list()
+  if (!is.null(iso2_list) && length(iso2_list) >= 5L) {
+    chunks <- split(iso2_list, ceiling(seq_along(iso2_list) / wid_batch_size))
+    message(
+      "Downloading WID sptinc p0p50 in ", length(chunks), " batch(es) of ~",
+      wid_batch_size, " countries (pop = equal-split adults)..."
+    )
+    for (k in seq_along(chunks)) {
+      chunk <- chunks[[k]]
+      d_batch <- tryCatch(
+        wid::download_wid(
+          indicators = "sptinc",
+          areas = chunk,
+          years = year_min:year_max,
+          perc = "p0p50",
+          ages = 999L,
+          pop = "j",
+          include_extrapolations = TRUE,
+          verbose = TRUE
+        ),
+        error = function(e) {
+          warning("WID API batch ", k, "/", length(chunks), " failed: ", conditionMessage(e))
+          NULL
+        }
+      )
+      if (!is.null(d_batch) && nrow(d_batch) > 0L) {
+        parts[[length(parts) + 1L]] <- d_batch
+      }
+      Sys.sleep(0.35)
     }
-  )
-  if (is.null(d) || nrow(d) == 0L) {
-    return(NULL)
   }
-  # API returns 2-letter area codes; convert to ISO3
+  if (length(parts) == 0L) {
+    message("Falling back to areas = 'all' (single request; may be incomplete)...")
+    d <- tryCatch(
+      wid::download_wid(
+        indicators = "sptinc",
+        areas = "all",
+        years = year_min:year_max,
+        perc = "p0p50",
+        ages = 999L,
+        pop = "j",
+        include_extrapolations = TRUE,
+        verbose = TRUE
+      ),
+      error = function(e) {
+        warning("WID API download failed: ", conditionMessage(e))
+        NULL
+      }
+    )
+    if (is.null(d) || nrow(d) == 0L) {
+      return(NULL)
+    }
+  } else {
+    d <- dplyr::bind_rows(parts)
+  }
   d <- as_tibble(d)
   if ("variable" %in% names(d)) {
     d <- d %>% filter(grepl("^sptinc", as.character(.data$variable)))
+  }
+  country_col <- if ("country" %in% names(d)) {
+    "country"
+  } else if ("area" %in% names(d)) {
+    "area"
+  } else {
+    stop("WID download: no 'country' or 'area' column in API result.")
   }
   d <- d %>%
     mutate(percentile = trimws(as.character(.data$percentile))) %>%
     filter(.data$percentile == "p0p50") %>%
     mutate(
-      ISO3 = countrycode::countrycode(.data$country, origin = "iso2c", destination = "iso3c"),
+      ISO3 = iso3_from_wid_area(.data[[country_col]]),
       Year = as.integer(.data$year),
-      # WID shares are fractions of 1; store as percent 0–100 for comparability with SWIID Gini scale
       WID_income_share_bottom50 = as.numeric(.data$value) * 100
     ) %>%
     filter(!is.na(ISO3), !is.na(Year)) %>%
@@ -108,9 +168,37 @@ download_wid_bottom50 <- function() {
   d
 }
 
+# If wid_clean.csv is a stub (e.g. USA-only), re-download when API works — otherwise CS step stays NA.
+force_rebuild <- Sys.getenv("WID_FORCE_REBUILD", "") == "1"
+stub <- FALSE
 if (file.exists(path_out)) {
-  message("wid_clean.csv already exists; delete it to rebuild.")
+  prev <- tryCatch(
+    read_csv(path_out, show_col_types = FALSE),
+    error = function(e) NULL
+  )
+  if (!is.null(prev) && nrow(prev) > 0L && "ISO3" %in% names(prev)) {
+    n_iso <- length(unique(prev$ISO3[!is.na(prev$ISO3)]))
+    stub <- nrow(prev) < 200L || n_iso < 10L
+  }
+}
+run_download <- !file.exists(path_out) || force_rebuild || stub
+if (!run_download) {
+  message(
+    "wid_clean.csv already exists (full panel). Delete data/wid_clean.csv or set ",
+    "WID_FORCE_REBUILD=1 to rebuild."
+  )
 } else {
+  if (file.exists(path_out)) {
+    message(
+      if (stub) {
+        "Attempting to replace stub wid_clean.csv (< 200 rows or < 10 countries).\n"
+      } else if (force_rebuild) {
+        "WID_FORCE_REBUILD=1: rebuilding wid_clean.csv.\n"
+      } else {
+        "Building wid_clean.csv.\n"
+      }
+    )
+  }
   out <- download_wid_bottom50()
   if (is.null(out)) {
     message("Trying fallback file: ", path_fallback)
@@ -125,11 +213,22 @@ if (file.exists(path_out)) {
     }
   }
   if (is.null(out) || nrow(out) == 0L) {
-    stop(
-      "Could not build WID panel. Install package 'wid' and run online, or add ",
-      "data/raw/wid_bottom50_ptinc.csv with columns ISO3, Year, value (share 0–1 or 0–100)."
+    warning(
+      paste0(
+        "Could not build WID panel (API unreachable or no fallback file).\n",
+        "  • Retry later with network, or install CRAN package 'wid' if missing.\n",
+        "  • Offline: add\n    ", path_fallback, "\n",
+        "    with columns ISO3, Year, value (bottom-50% pre-tax income share; 0–1 or 0–100).\n",
+        "  • merge_full_data.R will still run; Income_share_bottom50_WID will be missing.",
+        if (stub) "\n  • Stub wid_clean.csv was left unchanged." else ""
+      ),
+      call. = FALSE
+    )
+  } else {
+    write_csv(out, path_out, na = "")
+    message(
+      "Saved ", path_out, " (", nrow(out), " rows; ",
+      length(unique(out$ISO3)), " countries)."
     )
   }
-  write_csv(out, path_out, na = "")
-  message("Saved ", path_out, " (", nrow(out), " rows).")
 }

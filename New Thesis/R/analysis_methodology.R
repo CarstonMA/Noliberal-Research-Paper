@@ -7,15 +7,16 @@
 # Shock: first year in which YoY change in component > sd_mult * SD(Δ) over the full panel.
 #        first_treat = 0 if never exceeds threshold (never-treated).
 # Components: 17 sub-indices (Fraser without Summary; Heritage without Overall).
-# Outcomes (4): GDP per capita growth; SWIID Gini; WID bottom-50% income share; WDI under-5 mortality.
+# Outcomes (4): GDP per capita growth; SWIID Gini; WID bottom-50% income share; log WDI under-5 mortality (deaths/1,000).
 #
 # Requires: tidyverse, fixest, did.
 # Run from the thesis folder (New Thesis):  Rscript R/analysis_methodology.R
+# Appendix (event-study PDFs/PNGs, dynamic coef CSVs, cohort lists):  Rscript R/thesis_appendix_exports.R
 #
-# Also writes thesis-extraction outputs:
+# Also writes thesis outputs:
+#   - results/intermediate/ — Level 1–4 loop CSVs; results/final_tables/ — Table 2/3 + pooled OLS/TWFE/DiD (via table_exporters.R)
 #   - Event study (dynamic aggte + ggdid), pre-trend coefficients
-#   - Distributional outcome failure counts + survivor table
-#   - Cohort size vs robustness threshold + Table 3 (GDP @ 1.0 SD)
+#   - Distributional outcome failure counts + cohort / Table 3 (GDP @ 1.0 SD)
 
 req <- function(p) {
   if (!requireNamespace(p, quietly = TRUE)) {
@@ -43,6 +44,7 @@ if (!exists("find_proj_root", mode = "function")) {
   stop("Cannot find R/proj_paths.R")
 }
 proj_root <- find_proj_root()
+source(file.path(proj_root, "R", "event_study_plot.R"))
 path_results <- file.path(proj_root, "results")
 if (!dir.exists(path_results)) {
   dir.create(path_results, recursive = TRUE)
@@ -50,6 +52,13 @@ if (!dir.exists(path_results)) {
 path_figs <- file.path(path_results, "figures")
 if (!dir.exists(path_figs)) {
   dir.create(path_figs, recursive = TRUE)
+}
+path_intermediate <- file.path(path_results, "intermediate")
+path_final_tables <- file.path(path_results, "final_tables")
+for (p in c(path_intermediate, path_final_tables)) {
+  if (!dir.exists(p)) {
+    dir.create(p, recursive = TRUE)
+  }
 }
 
 # --- Settings ---
@@ -88,13 +97,13 @@ resolve_outcome <- function(d) {
       "GDP_per_capita_growth",
       "Gini_SWIID",
       "Income_share_bottom50_WID",
-      "Under5_mortality_rate"
+      "log_under5_mort"
     ),
     col = c(
       names(d)[names(d) == "GDP_per_capita_growth"][1],
       names(d)[names(d) == "Gini_SWIID"][1],
       names(d)[names(d) == "Income_share_bottom50_WID"][1],
-      names(d)[names(d) == "Under5_mortality_rate"][1]
+      names(d)[names(d) == "log_under5_mort"][1]
     )
   ) %>% filter(!is.na(col))
 }
@@ -103,7 +112,7 @@ outcomes_tbl <- resolve_outcome(df)
 outcome_cols <- outcomes_tbl$col
 names(outcome_cols) <- outcomes_tbl$label
 cat("Outcomes:", paste(names(outcome_cols), "=", outcome_cols, collapse = "; "), "\n")
-expected <- c("GDP_per_capita_growth", "Gini_SWIID", "Income_share_bottom50_WID", "Under5_mortality_rate")
+expected <- c("GDP_per_capita_growth", "Gini_SWIID", "Income_share_bottom50_WID", "log_under5_mort")
 missing_labs <- setdiff(expected, names(outcome_cols))
 if (length(missing_labs) > 0L) {
   warning(
@@ -308,10 +317,10 @@ for (comp in policy_components) {
   }
 }
 
-bind_rows(results_ols) %>% write_csv(file.path(path_results, "results_level1_ols.csv"))
-bind_rows(results_twfe) %>% write_csv(file.path(path_results, "results_level2_twfe.csv"))
+bind_rows(results_ols) %>% write_csv(file.path(path_intermediate, "results_level1_ols.csv"))
+bind_rows(results_twfe) %>% write_csv(file.path(path_intermediate, "results_level2_twfe.csv"))
 tbl_cs <- bind_rows(results_cs)
-write_csv(tbl_cs, file.path(path_results, "results_level3_cs_att.csv"))
+write_csv(tbl_cs, file.path(path_intermediate, "results_level3_cs_att.csv"))
 
 # Level 4: Benjamini–Hochberg (FDR) on Level-3 p-values
 ok <- is.finite(tbl_cs$p_value) & !is.na(tbl_cs$p_value)
@@ -321,9 +330,9 @@ if (sum(ok) > 0) {
   tbl_cs$fdr_bh[ok] <- stats::p.adjust(tbl_cs$p_value[ok], method = "fdr")
   tbl_cs$reject_bh_05 <- tbl_cs$fdr_bh < 0.05 & !is.na(tbl_cs$fdr_bh)
 }
-write_csv(tbl_cs, file.path(path_results, "results_level4_fdr.csv"))
+write_csv(tbl_cs, file.path(path_intermediate, "results_level4_fdr.csv"))
 
-cat("\nSaved under ", path_results, ": results_level1_ols.csv, results_level2_twfe.csv, results_level3_cs_att.csv, results_level4_fdr.csv\n", sep = "")
+cat("\nSaved under ", path_intermediate, ": results_level1_ols.csv, results_level2_twfe.csv, results_level3_cs_att.csv, results_level4_fdr.csv\n", sep = "")
 cat("Tests (CS):", nrow(tbl_cs), "\n")
 
 # --- Robustness: sd_mult = 1.0 ---
@@ -351,8 +360,8 @@ for (comp in policy_components) {
   }
 }
 tbl_robust <- bind_rows(results_cs_robust)
-write_csv(tbl_robust, file.path(path_results, "results_level3_cs_att_robust10sd.csv"))
-cat("Saved: ", file.path(path_results, "results_level3_cs_att_robust10sd.csv"), " (1.0 * SD)\n", sep = "")
+write_csv(tbl_robust, file.path(path_intermediate, "results_level3_cs_att_robust10sd.csv"))
+cat("Saved: ", file.path(path_intermediate, "results_level3_cs_att_robust10sd.csv"), " (1.0 * SD)\n", sep = "")
 
 ok_r <- is.finite(tbl_robust$p_value) & !is.na(tbl_robust$p_value)
 tbl_robust$fdr_bh <- NA_real_
@@ -361,7 +370,7 @@ if (sum(ok_r) > 0) {
   tbl_robust$fdr_bh[ok_r] <- stats::p.adjust(tbl_robust$p_value[ok_r], method = "fdr")
   tbl_robust$reject_bh_05 <- tbl_robust$fdr_bh < 0.05 & !is.na(tbl_robust$fdr_bh)
 }
-write_csv(tbl_robust, file.path(path_results, "results_level3_cs_att_robust10sd_fdr.csv"))
+write_csv(tbl_robust, file.path(path_intermediate, "results_level3_cs_att_robust10sd_fdr.csv"))
 
 # =============================================================================
 # Thesis extractions (event study, distributional, robustness tables)
@@ -423,8 +432,10 @@ plot_event <- function(comp_name, suffix) {
   if (is.null(ad)) {
     return(invisible(NULL))
   }
+  ft <- compute_first_treat(df, comp_name, sd_mult_main)
+  d_plot <- df %>% left_join(ft, by = "ISO3")
   g <- tryCatch(
-    did::ggdid(ad),
+    thesis_ggdid(ad, "GDP_per_capita_growth", comp_name, d = d_plot),
     error = function(e) NULL
   )
   if (is.null(g)) {
@@ -443,7 +454,7 @@ if (!is.na(second_name) && !is.na(best_name) && second_name != best_name) {
 }
 
 # --- 2) Distributional outcomes: failures + survivor table ---
-dist_outcomes <- c("Gini_SWIID", "Under5_mortality_rate")
+dist_outcomes <- c("Gini_SWIID", "log_under5_mort")
 tbl_dist <- tbl_cs %>% filter(outcome %in% dist_outcomes)
 
 for (ol in dist_outcomes) {
@@ -464,8 +475,8 @@ for (ol in dist_outcomes) {
 tbl_survivors <- tbl_dist %>%
   filter(is.finite(att), is.finite(p_value)) %>%
   select(component, outcome, att, se, p_value, fdr_bh, reject_bh_05)
-write_csv(tbl_survivors, file.path(path_results, "table2_distributional_survivors.csv"))
-cat("Saved: ", file.path(path_results, "table2_distributional_survivors.csv"), "\n", sep = "")
+write_csv(tbl_survivors, file.path(path_final_tables, "table2_distributional_survivors.csv"))
+cat("Saved: ", file.path(path_final_tables, "table2_distributional_survivors.csv"), "\n", sep = "")
 
 # --- 3) Cohort size (1.5 vs 1.0 SD) + Table 3 robustness (GDP @ 1.0 SD) ---
 cohort_tbl <- purrr::map_dfr(policy_components, function(comp) {
@@ -498,7 +509,119 @@ tbl_t3 <- tbl_robust %>%
   dplyr::arrange(p_value) %>%
   dplyr::slice(1:4) %>%
   select(component, att, se, p_value, fdr_bh, reject_bh_05)
-write_csv(tbl_t3, file.path(path_results, "table3_robustness_gdp_10sd_top4.csv"))
-cat("Saved: ", file.path(path_results, "table3_robustness_gdp_10sd_top4.csv"), "\n", sep = "")
+write_csv(tbl_t3, file.path(path_final_tables, "table3_robustness_gdp_10sd_top4.csv"))
+cat("Saved: ", file.path(path_final_tables, "table3_robustness_gdp_10sd_top4.csv"), "\n", sep = "")
+
+# --- Thesis figures: (1) methodological funnel forest plot, (2) event study ±5 ---
+# Funnel: strongest GDP baseline = lowest Level-3 CS p-value (same as event-study "main").
+funnel_component <- best_name
+oc_funnel <- oc_gdp
+if (!is.na(funnel_component) && funnel_component %in% policy_components && oc_funnel %in% names(df)) {
+  ft_fun <- compute_first_treat(df, funnel_component, sd_mult_main)
+  d_fun <- df %>% left_join(ft_fun, by = "ISO3")
+
+  m_ols <- tryCatch(
+    stats::lm(
+      as.formula(paste0("`", oc_funnel, "` ~ `", funnel_component, "`")),
+      data = d_fun %>% filter(!is.na(.data[[oc_funnel]]), !is.na(.data[[funnel_component]]))
+    ),
+    error = function(e) NULL
+  )
+  ols_est <- ols_se <- NA_real_
+  if (!is.null(m_ols)) {
+    ct <- summary(m_ols)$coefficients
+    if (nrow(ct) >= 2L) {
+      ols_est <- as.numeric(ct[2, 1])
+      ols_se <- as.numeric(ct[2, 2])
+    }
+  }
+
+  m_twfe <- run_twfe(d_fun, oc_funnel, funnel_component)
+  twfe_est <- twfe_se <- NA_real_
+  if (!is.null(m_twfe)) {
+    twfe_est <- as.numeric(stats::coef(m_twfe)[1])
+    twfe_se <- as.numeric(fixest::se(m_twfe)[1])
+  }
+
+  row_cs <- tbl_cs %>% dplyr::filter(component == funnel_component, outcome == "GDP_per_capita_growth")
+  cs_est <- if (nrow(row_cs) == 1L) row_cs$att[1] else NA_real_
+  cs_se <- if (nrow(row_cs) == 1L) row_cs$se[1] else NA_real_
+  row_fdr <- tbl_cs %>% dplyr::filter(component == funnel_component, outcome == "GDP_per_capita_growth")
+  fdr_q <- if (nrow(row_fdr) == 1L && "fdr_bh" %in% names(row_fdr)) row_fdr$fdr_bh[1] else NA_real_
+
+  n_cs_tests <- nrow(tbl_cs %>% dplyr::filter(is.finite(p_value)))
+  z_nominal <- stats::qnorm(0.975)
+  # Multiplicity-aware interval for the same ATT: Bonferroni critical value across all CS-DiD tests
+  # (visual counterpart to BH-FDR on p-values; widens uncertainty while holding the point estimate fixed).
+  z_bonf <- if (n_cs_tests >= 1L) {
+    stats::qnorm(1 - 0.05 / (2 * n_cs_tests))
+  } else {
+    z_nominal
+  }
+
+  lbl <- c(
+    "Baseline OLS",
+    "TWFE",
+    "CS-DiD Unadjusted",
+    "CS-DiD FDR Adjusted"
+  )
+  est <- c(ols_est, twfe_est, cs_est, cs_est)
+  se <- c(ols_se, twfe_se, cs_se, cs_se)
+  zcrit <- c(z_nominal, z_nominal, z_nominal, z_bonf)
+  funnel_tbl <- tibble(
+    model = factor(lbl, levels = lbl),
+    estimate = est,
+    se = se,
+    ymin = estimate - zcrit * se,
+    ymax = estimate + zcrit * se
+  )
+
+  g_funnel <- ggplot2::ggplot(funnel_tbl, ggplot2::aes(x = model, y = estimate)) +
+    ggplot2::geom_hline(yintercept = 0, linetype = "dashed", linewidth = 1, color = "gray25") +
+    ggplot2::geom_pointrange(
+      ggplot2::aes(ymin = ymin, ymax = ymax),
+      linewidth = 0.55,
+      size = 2.2,
+      color = "#1b4f72"
+    ) +
+    ggplot2::labs(
+      title = paste0(
+        "Methodological Funnel: ",
+        pretty_policy_component(funnel_component),
+        " \u2192 GDP per Capita Growth"
+      ),
+      subtitle = paste0(
+        "95% CIs; Last Column Holds the CS-DiD ATT Fixed and Widens the Interval Using a Bonferroni ",
+        "Critical Value (\u03b1/(2\u00b7", n_cs_tests, ") CS-DiD Tests) to Illustrate Multiplicity; ",
+        "BH-FDR q = ", ifelse(is.finite(fdr_q), format(round(fdr_q, 3), nsmall = 3), "NA"), "."
+      ),
+      x = NULL,
+      y = "Point Estimate (\u03b2 / ATT)"
+    ) +
+    ggplot2::theme_bw(base_size = 12) +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 12, hjust = 1))
+
+  fn_funnel <- file.path(path_figs, paste0("methodological_funnel_", funnel_component, "_gdp.png"))
+  ggplot2::ggsave(fn_funnel, g_funnel, width = 8.5, height = 5.2, dpi = 150)
+  cat("Saved funnel plot:", fn_funnel, "\n")
+
+  # Event study (ggdid), window t-5 … t+5 for parallel-trends visibility
+  if (funnel_component %in% names(agg_dyn_for_plot)) {
+    ad <- agg_dyn_for_plot[[funnel_component]]
+    if (!is.null(ad)) {
+      g_ev <- tryCatch(
+        thesis_ggdid(ad, "GDP_per_capita_growth", funnel_component, d = d_fun, max_pre = 5L, max_post = 5L),
+        error = function(e) NULL
+      )
+      if (!is.null(g_ev)) {
+        fn_ev <- file.path(path_figs, "event_study_gdp_main_t5_to_t5.png")
+        ggplot2::ggsave(fn_ev, g_ev, width = 8, height = 5, dpi = 150)
+        cat("Saved event-study figure (t\u00b15):", fn_ev, "\n")
+      }
+    }
+  }
+}
 
 cat("\nDone.\n")
+
+source("R/table_exporters.R")

@@ -125,6 +125,13 @@ names(merged) <- make.names(names(merged), unique = TRUE)
 u5_src <- names(merged)[grepl("^SH\\.DTH\\.MORT$", names(merged))][1]
 if (!is.na(u5_src) && u5_src %in% names(merged)) {
   merged$Under5_mortality_rate <- merged[[u5_src]]
+  # Log scale for DiD: levels (deaths per 1,000) yield unstable CS SEs; log ≈ %-change interpretation
+  merged$log_under5_mort <- ifelse(
+    is.finite(merged$Under5_mortality_rate) & merged$Under5_mortality_rate > 0,
+    log(merged$Under5_mortality_rate),
+    NA_real_
+  )
+  cat("Created log_under5_mort = log(SH.DTH.MORT); NA if missing or non-positive.\n")
 }
 sw_src <- names(merged)[grepl("^SWIID_gini_disp$", names(merged))][1]
 if (!is.na(sw_src) && sw_src %in% names(merged)) {
@@ -133,6 +140,22 @@ if (!is.na(sw_src) && sw_src %in% names(merged)) {
 wid_src <- names(merged)[grepl("^WID_income_share_bottom50$", names(merged))][1]
 if (!is.na(wid_src) && wid_src %in% names(merged)) {
   merged$Income_share_bottom50_WID <- merged[[wid_src]]
+  n_wid <- sum(!is.na(merged$Income_share_bottom50_WID))
+  n_iso_wid <- length(unique(merged$ISO3[!is.na(merged$Income_share_bottom50_WID)]))
+  cat(
+    "WID bottom-50% share: ", n_wid, " non-missing country-years (",
+    n_iso_wid, " countries).\n",
+    sep = ""
+  )
+  # CS step in analysis_methodology.R uses nrow(d) >= 100 after dropping NA outcome
+  if (n_wid < 100L) {
+    warning(
+      "WID coverage is too sparse for Callaway–Sant'Anna (need >= 100 country-year observations). ",
+      "Replace data/wid_clean.csv with a multi-country extract: run import_wid.R online, ",
+      "or add data/raw/wid_bottom50_ptinc.csv (ISO3, Year, value) from wid.world.",
+      call. = FALSE
+    )
+  }
 }
 
 # 8. Find GDP per capita column (PPP constant 2021)
@@ -229,6 +252,9 @@ if (!is.na(wid_col)) {
 u5_col <- names(merged)[grepl("^SH\\.DTH\\.MORT$", names(merged))][1]
 if (!is.na(u5_col)) {
   cat("Non-missing", u5_col, "(under-5 mortality):", sum(!is.na(merged[[u5_col]])), "\n")
+}
+if ("log_under5_mort" %in% names(merged)) {
+  cat("Non-missing log_under5_mort:", sum(!is.na(merged$log_under5_mort)), "\n")
 }
 if ("high_gdp_pc_ppp_baseline" %in% names(merged)) {
   cat(
